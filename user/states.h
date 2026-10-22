@@ -64,6 +64,8 @@ typedef struct {
 extern int open_options;
 
 void makeSaveStatePath(char *path, int num);
+void saveState(int num);
+void loadState(int num);
 
 int initStates();
 void finishStates();

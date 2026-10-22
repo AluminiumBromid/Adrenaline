@@ -92,6 +92,7 @@ add_executable(adrenaline_user
   msfs.c
   menu.c
   states.c
+  remote.c
   usb.c
   utils.c
   math_utils.c

@@ -50,6 +50,7 @@
 #include "msfs.h"
 #include "menu.h"
 #include "states.h"
+#include "remote.h"
 #include "usb.h"
 #include "utils.h"
 #include "msfs.h"
@@ -498,6 +499,9 @@ static int InitAdrenaline() {
 	if (draw_thid >= 0) {
 		sceKernelStartThread(draw_thid, 0, NULL);
 	}
+
+	// Remote savestate commands (tools); starts only once
+	remoteStart();
 
 	return 0;
 }
