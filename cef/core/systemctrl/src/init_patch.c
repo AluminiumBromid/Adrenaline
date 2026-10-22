@@ -30,6 +30,7 @@
 
 #include "externs.h"
 #include "plugin.h"
+#include "boot_request.h"
 
 // init.prx Custom sceKernelStartModule Handler
 int (* custom_start_module_handler)(int modid, SceSize argsize, void * argp, int * modstatus, SceKernelSMOption * opt) = NULL;
@@ -69,6 +70,11 @@ int sceKernelStartModulePatched(SceUID modid, SceSize argsize, void *argp, int *
 	}
 
 	if (strcmp(mod->modname, "vsh_module") == 0) {
+		// cold boot into the XMB: a pending boot request wins over the XMB and autorun
+		if (argsize == 0) {
+			bootRequestRun();
+		}
+
 		if (g_cfw_config.skip_logo || g_cfw_config.startup_program) {
 			static u32 vshmain_args[0x100];
 			memset(vshmain_args, 0, sizeof(vshmain_args));

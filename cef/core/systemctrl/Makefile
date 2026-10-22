@@ -3,6 +3,7 @@ release: all
 
 TARGET = systemctrl
 OBJS =  src/main.o \
+	src/boot_request.o \
 	src/pgd.o \
 	src/conf.o \
 	src/nodrm.o \

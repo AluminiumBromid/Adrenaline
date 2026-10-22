@@ -1,6 +1,7 @@
 add_cef_prx(systemctrl
   SRC_FILES
     src/main.c
+    src/boot_request.c
     src/conf.c
     src/executable_patch.c
     src/game_patch.c
