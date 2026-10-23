@@ -460,12 +460,18 @@ void unlockPower() {
 	lock_power = 0;
 }
 
+static void LogClocks(const char *when) {
+	sceClibPrintf("[clocks] %s: arm %d, bus %d, gpu %d, xbar %d MHz\n", when, scePowerGetArmClockFrequency(),
+	              scePowerGetBusClockFrequency(), scePowerGetGpuClockFrequency(), scePowerGetGpuXbarClockFrequency());
+}
+
 static int AdrenalinePowerTick(SceSize args, void *argp) {
 	while (1) {
 		if (lock_power) {
 			sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DISABLE_AUTO_SUSPEND);
 		}
 
+		LogClocks("tick");
 		sceKernelDelayThread(10 * 1000 * 1000);
 	}
 
@@ -473,8 +479,18 @@ static int AdrenalinePowerTick(SceSize args, void *argp) {
 }
 
 static int InitAdrenaline() {
+	LogClocks("start");
+
 	// Set GPU frequency to highest
 	scePowerSetGpuClockFrequency(222);
+
+	// Test (GePatch at 960x544 waits for Sony's GE translator and the GPU): the other clocks at
+	// their highest values for applications too
+	int arm = scePowerSetArmClockFrequency(444);
+	int bus = scePowerSetBusClockFrequency(222);
+	int xbar = scePowerSetGpuXbarClockFrequency(166);
+	sceClibPrintf("[clocks] set arm 444: 0x%08x, bus 222: 0x%08x, xbar 166: 0x%08x\n", arm, bus, xbar);
+	LogClocks("after");
 
 	// Enable screenshot
 	sceScreenShotEnable();
