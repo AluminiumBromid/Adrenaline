@@ -591,10 +591,19 @@ int AdrenalineDraw(SceSize args, void *argp) {
 	// Log every 2 s: redraws for a new frame, skipped repeats, redraws in the stale fallback
 	uint32_t native_log_start = sceKernelGetProcessTimeLow();
 	int native_new = 0, native_skipped = 0, native_stale = 0;
+	int last_draw_native = 0;
 
 	while (1) {
 		int draw_native = *(uint32_t *)CONVERT_ADDRESS(DRAW_NATIVE);
 		SceAdrenaline *adrenaline = (SceAdrenaline *)CONVERT_ADDRESS(ADRENALINE_ADDRESS);
+
+		// Native drawing ended within the session (GePatch passes the XMB's boot video through at
+		// PSP resolution): give the screen back to the PSP emulator, as after the menu. Without that
+		// the last native frame stays on screen when no filter is set (Adrenaline draws nothing then).
+		if (last_draw_native && !draw_native && !adrenaline->pops_mode) {
+			SetPspemuFrameBuffer((void *)SCE_PSPEMU_FRAMEBUFFER);
+		}
+		last_draw_native = draw_native;
 
 		// pause/unpause pops once after switching from psp to pops mode
 		// this pause/unpause fixes slowdown in PS1 games that used to require manually entering/exiting menu
