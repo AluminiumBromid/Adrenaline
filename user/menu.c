@@ -592,10 +592,20 @@ int AdrenalineDraw(SceSize args, void *argp) {
 
 	int direct_sharp_scale_requested = -1;
 	int is_vita_tv = sceKernelIsPSVitaTV();
+	int last_draw_native = 0;
 
 	while (1) {
 		int draw_native = *(uint32_t *)CONVERT_ADDRESS(DRAW_NATIVE);
 		SceAdrenaline *adrenaline = (SceAdrenaline *)CONVERT_ADDRESS(ADRENALINE_ADDRESS);
+
+		// Native drawing ended within the session (GePatch passes the XMB's boot video through at
+		// PSP resolution): give the screen back to the PSP emulator, as after the menu. Without that
+		// the last native frame stays on screen when Adrenaline draws nothing (no filter, or IFTU Sharp
+		// Bilinear).
+		if (last_draw_native && !draw_native && !adrenaline->pops_mode) {
+			SetPspemuFrameBuffer((void *)SCE_PSPEMU_FRAMEBUFFER);
+		}
+		last_draw_native = draw_native;
 
 		int request_direct_sharp_scale =
 			!is_vita_tv && !adrenaline->pops_mode && !draw_native
