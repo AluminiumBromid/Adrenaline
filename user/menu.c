@@ -580,6 +580,14 @@ int AdrenalineDraw(SceSize args, void *argp) {
 	// keep track of entering pops mode
 	int lastPops = 0;
 
+	// Native (GePatch) frames: the game finishes 20-30 a second, this loop runs at 60 Hz. Redraw only
+	// when GePatch's frame counter changes; if it stays the same for NATIVE_STALE_VBLANKS (a GePatch
+	// without the counter, a loading pause), redraw every vblank as before.
+	#define NATIVE_STALE_VBLANKS 6
+	uint32_t native_frame = 0;
+	int native_unchanged = NATIVE_STALE_VBLANKS;
+	int native_on_screen = 0;  // the last swapped picture is the native frame, without menu
+
 	while (1) {
 		int draw_native = *(uint32_t *)CONVERT_ADDRESS(DRAW_NATIVE);
 		SceAdrenaline *adrenaline = (SceAdrenaline *)CONVERT_ADDRESS(ADRENALINE_ADDRESS);
@@ -614,6 +622,7 @@ int AdrenalineDraw(SceSize args, void *argp) {
 			if (!adrenaline->pops_mode)
 				sceCompatLCDCSync();
 
+			native_on_screen = 0;
 			continue;
 		}
 
@@ -657,8 +666,23 @@ int AdrenalineDraw(SceSize args, void *argp) {
 		if (sceCommonDialogIsRunning() || (config.graphics_filtering == 0 && menu_open == 0 && draw_native == 0)) {
 			sceDisplayWaitVblankStart();
 
+			native_on_screen = 0;
 			continue;
 		}
+
+		// Skip the redraw while the native frame on screen is still the newest
+		if (draw_native && !menu_open && !adrenaline->pops_mode) {
+			uint32_t frame = *(volatile uint32_t *)CONVERT_ADDRESS(NATIVE_FRAME_COUNTER);
+			if (frame != native_frame) {
+				native_frame = frame;
+				native_unchanged = 0;
+			} else if (native_on_screen && native_unchanged < NATIVE_STALE_VBLANKS) {
+				native_unchanged++;
+				sceDisplayWaitVblankStart();
+				continue;
+			}
+		}
+		native_on_screen = draw_native && !menu_open && !adrenaline->pops_mode;
 
 		// Draw display
 		vita2d_start_drawing();

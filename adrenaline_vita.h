@@ -32,6 +32,8 @@
 #define ADRENALINE_ADDRESS 0xABCDE000
 
 #define DRAW_NATIVE 0xABCDEF00
+// GePatch: number of the last complete native frame (written by the GE after its copy).
+#define NATIVE_FRAME_COUNTER 0xABCDEF10
 #define NATIVE_FRAMEBUFFER 0x0A400000
 
 #define CONVERT_ADDRESS(addr) (0x68000000 + (addr & 0x0FFFFFFF))
