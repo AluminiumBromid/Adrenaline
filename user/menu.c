@@ -29,6 +29,7 @@
 #include <psp2/kernel/dmac.h>
 #include <psp2/kernel/sysmem.h>
 #include <psp2/kernel/processmgr.h>
+#include <psp2/kernel/clib.h>
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -587,6 +588,9 @@ int AdrenalineDraw(SceSize args, void *argp) {
 	uint32_t native_frame = 0;
 	int native_unchanged = NATIVE_STALE_VBLANKS;
 	int native_on_screen = 0;  // the last swapped picture is the native frame, without menu
+	// Log every 2 s: redraws for a new frame, skipped repeats, redraws in the stale fallback
+	uint32_t native_log_start = sceKernelGetProcessTimeLow();
+	int native_new = 0, native_skipped = 0, native_stale = 0;
 
 	while (1) {
 		int draw_native = *(uint32_t *)CONVERT_ADDRESS(DRAW_NATIVE);
@@ -673,13 +677,25 @@ int AdrenalineDraw(SceSize args, void *argp) {
 		// Skip the redraw while the native frame on screen is still the newest
 		if (draw_native && !menu_open && !adrenaline->pops_mode) {
 			uint32_t frame = *(volatile uint32_t *)CONVERT_ADDRESS(NATIVE_FRAME_COUNTER);
+			uint32_t now = sceKernelGetProcessTimeLow();
+			if (now - native_log_start >= 2000000) {
+				sceClibPrintf("[display] native redraws over %u ms: new %d, skipped %d, stale %d; counter %u\n",
+				              (unsigned int)((now - native_log_start) / 1000), native_new, native_skipped, native_stale,
+				              (unsigned int)frame);
+				native_log_start = now;
+				native_new = native_skipped = native_stale = 0;
+			}
 			if (frame != native_frame) {
 				native_frame = frame;
 				native_unchanged = 0;
+				native_new++;
 			} else if (native_on_screen && native_unchanged < NATIVE_STALE_VBLANKS) {
 				native_unchanged++;
+				native_skipped++;
 				sceDisplayWaitVblankStart();
 				continue;
+			} else {
+				native_stale++;
 			}
 		}
 		native_on_screen = draw_native && !menu_open && !adrenaline->pops_mode;
