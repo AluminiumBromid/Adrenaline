@@ -3,6 +3,8 @@
 #ifndef __XMBCTRL_OPTIONS_H__
 #define __XMBCTRL_OPTIONS_H__
 
+#define ITEM_OPT(i) { NELEMS(i), i }
+
 static char *g_plugins_options[] = {"Off", "On", "Remove"};
 
 static char *g_cpuspeeds_options[] = {
@@ -30,7 +32,7 @@ static char *g_region_options[] = {
 	"Russia",         "China",         "Debug I",   "Debug II"
 };
 
-static char *g_highmem_options[] = {"Disabled", "Stable", "Max"};
+static char *g_highmem_options[] = {"Default", "Force Stable", "Force Max", "Force Disabled"};
 
 static char *g_use_extended_color_option[] = {"Disabled", "02g", "03g"};
 
@@ -47,5 +49,7 @@ static char *g_hide_pics_options[] = {"Disabled", "Both", "PIC0 Only", "PIC1 Onl
 static char *g_fake_free_mem[] = {"Auto", "16MB", "24MB", "32MB", "40MB", "48MB", "52MB", "60MB", "64MB"};
 
 static char *g_vsh_menu_opt[] = { "Modern", "Classic" };
+
+static char *g_psp_game_plugin_opt[] = { "Try Extra RAM", "Game RAM" };
 
 #endif

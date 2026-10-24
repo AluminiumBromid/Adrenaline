@@ -59,6 +59,7 @@ PSP_EXPORT_FUNC(sctrlHENSetMemory)
 PSP_EXPORT_FUNC(sctrlHENSetSpeed)
 PSP_EXPORT_FUNC(sctrlHENGetSpeed)
 PSP_EXPORT_FUNC(sctrlHENSetStartModuleHandler)
+PSP_EXPORT_FUNC(sctrlHENSetSystemBootedHandler)
 PSP_EXPORT_FUNC(sctrlHENFakeDevkitVersion)
 PSP_EXPORT_FUNC(sctrlHENFindJALGeneric)
 PSP_EXPORT_FUNC(sctrlHENFindFirstBEQ)
@@ -153,6 +154,7 @@ PSP_EXPORT_FUNC(sctrlHENSetMemory)
 PSP_EXPORT_FUNC(sctrlHENSetSpeed)
 PSP_EXPORT_FUNC(sctrlHENGetSpeed)
 PSP_EXPORT_FUNC(sctrlHENSetStartModuleHandler)
+PSP_EXPORT_FUNC(sctrlHENSetSystemBootedHandler)
 PSP_EXPORT_FUNC(sctrlHENFindJALGeneric)
 PSP_EXPORT_FUNC(sctrlHENFindFirstBEQ)
 PSP_EXPORT_FUNC(sctrlHENFindRefInGlobals)
@@ -338,5 +340,12 @@ PSP_EXPORT_FUNC(__umoddi3)
 PSP_EXPORT_FUNC(__udivmoddi4)
 PSP_EXPORT_END
 # END SysclibForUser
+
+PSP_EXPORT_START(NoDrmHelper, 0, 0x0001)
+PSP_EXPORT_FUNC(nodrmBBMacGetKey)
+PSP_EXPORT_FUNC(nodrmGetEdatKey)
+PSP_EXPORT_FUNC(nodrmGetVersionKey)
+PSP_EXPORT_END
+# END NoDrm
 
 PSP_END_EXPORTS

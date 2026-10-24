@@ -42,6 +42,7 @@
 #include <string.h>
 
 #include "lodepng/lodepng.h"
+#include "lz4/lz4.h"
 
 #include "main.h"
 #include "pops.h"
@@ -52,13 +53,9 @@
 #include "states.h"
 #include "usb.h"
 #include "utils.h"
-#include "msfs.h"
+#include "startdat.h"
 #include "../adrenaline_vita.h"
 #include "../adrenaline_version.h"
-
-#include "lz4/lz4.h"
-
-#include "startdat.h"
 
 
 INCLUDE_EXTERN_RESOURCE(payloadex_bin);
@@ -111,14 +108,11 @@ SceUID usbdevice_modid = -1;
 
 AdrenalineConfig config;
 
-extern int menu_open;
-extern int g_devctl_use_ef;
-
 extern SceInt32 sceLiveAreaUpdateFrameSync(const char *formatVer,const char *frameXmlStr,SceInt32 frameXmlLen,const char *dirpathTop,SceUInt32 flag);
 
 int __errno;
 
-void GetFunctions() {
+static void GetFunctions(void) {
 	ScePspemuDivide                     = (void *)(text_addr + 0x39F0 + 0x1);
 	ScePspemuErrorExit                  = (void *)(text_addr + 0x4104 + 0x1);
 	ScePspemuConvertAddress             = (void *)(text_addr + 0x6364 + 0x1);
@@ -162,7 +156,7 @@ void SendAdrenalineRequest(int cmd) {
 #define LZ4_ACCELERATION 8
 #define SAVESTATE_TEMP_SIZE (32 * 1024 * 1024)
 
-int SaveState(SceAdrenaline *adrenaline, void *savestate_data) {
+static int SaveState(SceAdrenaline *adrenaline, void *savestate_data) {
 	void *ram = (void *)ScePspemuConvertAddress(0x88000000, KERMIT_INPUT_MODE, PSP_RAM_SIZE);
 
 	char path[128];
@@ -213,7 +207,7 @@ int SaveState(SceAdrenaline *adrenaline, void *savestate_data) {
 	return 0;
 }
 
-int LoadState(SceAdrenaline *adrenaline, void *savestate_data) {
+static int LoadState(SceAdrenaline *adrenaline, void *savestate_data) {
 	void *ram = (void *)ScePspemuConvertAddress(0x88000000, KERMIT_OUTPUT_MODE, PSP_RAM_SIZE);
 
 	char path[128];
@@ -261,7 +255,7 @@ int LoadState(SceAdrenaline *adrenaline, void *savestate_data) {
 
 extern vita2d_texture* overlay_texture;
 
-int AdrenalineCompat(SceSize args, void *argp) {
+static int AdrenalineCompat(SceSize args, void *argp) {
 	void *savestate_data = NULL;
 
 	// Allocate savestate temp memory
@@ -369,7 +363,7 @@ int AdrenalineCompat(SceSize args, void *argp) {
 
 			if ( res == 0 ) {
 				char frameXmlStr[512] = {0};
-				res = ReadFile("ux0:app/" ADRENALINE_TITLEID "/frame.xml", frameXmlStr, 512);
+				res = ReadFile("ux0:app/" ADRENALINE_TITLEID "/frame.xml", frameXmlStr, sizeof(frameXmlStr));
 				if (res > 0) {
 					res = sceLiveAreaUpdateFrameSync("01.00", frameXmlStr, strlen(frameXmlStr), "app0:/", 0);
 				}
@@ -502,7 +496,7 @@ static int InitAdrenaline() {
 	return 0;
 }
 
-int sceCompatSuspendResumePatched(int unk) {
+static int sceCompatSuspendResumePatched(int unk) {
 	// Lock USB connection and PS button
 	sceShellUtilLock(SCE_SHELL_UTIL_LOCK_TYPE_USB_CONNECTION | SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN_2);
 
@@ -551,15 +545,17 @@ static int sceCompatWaitSpecialRequestPatched(int mode) {
 	kuCtrlPeekBufferPositive(0, &pad, 1);
 
 	SceIoStat stat;
-	char ark_path[47];
-	snprintf(ark_path, 47, "%s" FLASH0_ARK_PATH, getPspemuMemoryStickLocation());
+	char ark_path[64];
+	snprintf(ark_path, sizeof(ark_path), "%s" FLASH0_ARK_PATH, getPspemuMemoryStickLocation());
 	allow_ark = sceIoGetstat(ark_path, &stat) >= 0 || sceIoGetstat("ux0:pspemu" FLASH0_ARK_PATH, &stat) >= 0;
 
 	if (pad.buttons & SCE_CTRL_RTRIGGER) {
 		((uint32_t *)n)[0] = MODE_RECOVERY; // Recovery mode
 	}
 
-	if (sceIoGetstat("ux0:app/" ADRENALINE_TITLEID "/flash0", &stat) < 0) {
+	if (sceIoGetstat("ux0:data/" ADRENALINE_TITLEID "/flash0", &stat) < 0
+		&& sceIoGetstat("ux0:app/" ADRENALINE_TITLEID "/flash0", &stat) < 0)
+	{
 		((uint32_t *)n)[0] = MODE_RECOVERY; // Recovery mode
 		allow_ark = 0;
 	}
@@ -651,8 +647,12 @@ static void migrate_config() {
 		case ADRENALINE717_CFG_MAGIC_2:
 			sceClibPrintf("Adrenaline: [INFO]: Found 7.1.7 configuration\n");
 			AdrenalineConfig717 config_compat = {0};
-			ReadFile("ux0:app/" ADRENALINE_TITLEID "/adrenaline.bin", &config_compat, sizeof(AdrenalineConfig717));
+			int res = ReadFile("ux0:data/" ADRENALINE_TITLEID "/adrenaline.bin", &config_compat, sizeof(AdrenalineConfig717));
+			if (res < 0) {
+				ReadFile("ux0:app/" ADRENALINE_TITLEID "/adrenaline.bin", &config_compat, sizeof(AdrenalineConfig717));
+			}
 			migrate_config_717(&config_compat, &config);
+			WriteFile("ux0:data/" ADRENALINE_TITLEID "/adrenaline.bin", &config, sizeof(AdrenalineConfig));
 			WriteFile("ux0:app/" ADRENALINE_TITLEID "/adrenaline.bin", &config, sizeof(AdrenalineConfig));
 			sceClibPrintf("Adrenaline: [INFO]: Migrated 7.1.7 configuration\n");
 			break;
@@ -675,7 +675,7 @@ int module_start(SceSize args, void *argp) {
 		char frameXmlStr[512];
 		snprintf(
 			frameXmlStr,
-			512,
+			sizeof(frameXmlStr),
 			"<frame id=\"frame2\">"
 					"<liveitem>"
 							"<text valign=\"bottom\" align=\"left\" text-align=\"left\" text-valign=\"bottom\" line-space=\"3\" ellipsis=\"on\">"
@@ -689,10 +689,10 @@ int module_start(SceSize args, void *argp) {
 		);
 		res = sceLiveAreaUpdateFrameSync("01.00", frameXmlStr, strlen(frameXmlStr), "app0:/", 0);
 
-		memset(frameXmlStr, 0, 512);
+		memset(frameXmlStr, 0, sizeof(frameXmlStr));
 		snprintf(
 			frameXmlStr,
-			512,
+			sizeof(frameXmlStr),
 			"<frame id=\"frame3\">"
 				"<liveitem>"
 					"<text valign=\"top\" align=\"left\" text-align=\"left\" text-valign=\"top\" line-space=\"2\" ellipsis=\"on\">"
@@ -706,9 +706,18 @@ int module_start(SceSize args, void *argp) {
 
 	mspace_init();
 
+	SceIoStat stat;
+	if (sceIoGetstat("ux0:data/" ADRENALINE_TITLEID, &stat) == SCE_ENOENT) {
+		sceIoMkdir("ux0:data/" ADRENALINE_TITLEID, 0777);
+	}
+
 	// Read config
 	memset(&config, 0, sizeof(AdrenalineConfig));
-	ReadFile("ux0:app/" ADRENALINE_TITLEID "/adrenaline.bin", &config, sizeof(AdrenalineConfig));
+	res = ReadFile("ux0:data/" ADRENALINE_TITLEID "/adrenaline.bin", &config, sizeof(AdrenalineConfig));
+	if (res < 0) {
+		ReadFile("ux0:app/" ADRENALINE_TITLEID "/adrenaline.bin", &config, sizeof(AdrenalineConfig));
+	}
+
 	migrate_config();
 	if ((uint32_t)config.psp_screen_scale_x == 0) {
 		config.psp_screen_scale_x = 2.0f;

@@ -33,7 +33,7 @@ Configures the CPU/BUS clock speed on when the system is running a PSP game, PSP
 
 #### Options:
 
-- `Default`: Game/app dependant
+- `Default`: Game/app dependent
 - `20/10`
 - `75/37`
 - `100/50`
@@ -177,28 +177,33 @@ Incorrect configuration may lead to unexpected issues, so proceed with caution a
 > [!TIP]
 > On the XMB CFW menu, advanced settings are marked with the `▲` symbol.
 
-### Force high memory layout
+### High memory layout
 
 Controls whether to force the unlock extra RAM space for the user-space RAM partition, that can be used by games and apps.
 
 #### Options:
 
-- `Disabled`: With this option, no specific memory layout is forced.
+- `Default`: With this option, no specific memory layout is forced.
 	- By default, user RAM partition gets the standard 24MB.
 	- Homebrew games/apps can request other layout by using the `MEMSIZE` in their `SFO` information or by using the CFW API.
 	- Plugin author can use the CFW API to request changing the layout.
-- `Stable`: The stable amount of extra RAM is made available to the user RAM partition, a total of 40MB.
+- `Force Stable`: The stable amount of extra RAM is made available to the user RAM partition, a total of 40MB.
 	- When this options is set, it truly forces it, any requests to modify it will result in it being "ignored" (the CFW API returns an error informing that is not possible to modify the memory layout).
-- `Max`: Makes the maximum possible of RAM available to the user RAM partition, a total of 52MB, at the cost of potential instabilities.
+- `Force Max`: Makes the maximum possible of RAM available to the user RAM partition, a total of 52MB, at the cost of potential instabilities.
 	- When this options is set, it truly forces it, any requests to modify it will result in it being "ignored" (the CFW API returns an error informing that is not possible to modify the memory layout).
-
+- `Force Disabled`: This option forces the the system to always have the same memory layout as the unmodified PSP firmware.
+    - This means the `MEMSIZE` option in homebrew `SFO` will be ignored
+	- CFW API to request changes to memory layout will always fail.
 
 > [!WARNING] Max Option Warning
 > Some important stuff for the VITA's PSPemu are put in this region of memory. Although Epinephrine protects the sub-region that was already identified, those last 16MB region usage was not yet completely investigated and reversed. That means that some system instabilities may occur once things start to be allocated on this region.
 
+> [!TIP]
+> Homebrew developers can use the `Force Disabled` to test with more certainty if the homebrew will work on PSP 1000 models when testing on real 1000 model is not possible.
+
 ### Fake max free memory
 
-Controls wether to limit the reported maximum free memory and how much to limit from `sceKernelMaxFreeMemSize` on a title.
+Controls whether to limit the reported maximum free memory and how much to limit from `sceKernelMaxFreeMemSize` on a title.
 
 Any option other than `Auto` will always use that value, regardless of existent game patches and fixes.
 
@@ -220,16 +225,35 @@ Any option other than `Auto` will always use that value, regardless of existent 
 > This options is made available to facilitate exploratory tests with games that breaks with high memory layout or similar issues.
 
 > [!CAUTION]
-> Some games may require more specific values to make then stable on high memory layout (e.g. Rainbow Six: Vegas). In case none of the options helps with crashes, create/open/upvote an issue on the [project issue tracer](https://github.com/isage/Adrenaline/issues) (but also check first to avoid opening duplicated issue tracker).
+> Some games may require more specific values to make them stable on high memory layout (e.g. Rainbow Six: Vegas). In case none of the options helps with crashes, create/open/upvote an issue on the [project issue tracker](https://github.com/isage/Adrenaline/issues) (but also check first to avoid opening duplicated issue tracker).
+
+### PSP game/app plugin RAM Partition
+
+Controls in what RAM partition userland plugins are loaded in PSP game/apps.
+
+#### Options:
+
+- `Try Extra RAM`: Attempts to load the userland plugin on the extra RAM partition, if that fails, attempts to load the plugin on the game RAM partition.
+	- It makes plugins not use the game memory, avoiding game crashes with out-of-memory exception when loading too many userland plugins or plugins too greedy with memory.
+	- If [Force high memory layout](#force-high-memory-layout) is enabled, this options will effectively work like `Game RAM` option.
+- `Game RAM`: Always attempts to load the userland plugin on the game RAM partition. This is the classical behavior.
+
+> [!TIP]
+> If a plugin is not loading with the `Try Extra RAM` **and** you already checked plugin configuration file, you can try to change this option to `Game RAM` and test it out.
+
+> [!WARNING]
+> The `Try Extra RAM` options allows to the system to load way more userland plugins than the classical way, because the extra RAM partition is not used by anything in the system (unless with `Force high memory layout`, that integrates the extra RAM to game/user RAM partition) and doesn't get in the way of the memory used by games/apps.
+>
+> For that reason, if you need to change to the `Game RAM` option, it is recommended to disable unnecessary PSP game plugins.
 
 ### Use Graphic Engine 2
 
-Controls wether to load an alternative implementation of the Graphic Engine module, i.e. loads `ge_2.prx` instead of `ge.prx`.
+Controls whether to load an alternative implementation of the Graphic Engine module, i.e. loads `ge_2.prx` instead of `ge.prx`.
 
 This is a CFW option made available to tinkerers to explore possible improvement options for apps/games (considering that native PSPemu has similar options for compatibility with officially released PSP titles on VITA). But it is also an advanced option as it may also cause regressions and/or issues with apps/games.
 
 > [!NOTE]
-> The modules being called "2" doesn't mean it is a improved version, but rather a poorly named alternative version to be used as compatibility fixer for a small number of officially released titles.
+> The modules being called "2" doesn't mean it is an improved version, but rather a poorly named alternative version to be used as compatibility fixer for a small number of officially released titles.
 >
 > So it is a direct effect of a bad naming because programmers (usually with tight deadlines) are bad at naming things that are very similar in functionality with another existing thing, more so in a thing that is not supposed to be known by end-users... Been there, done that LOL.
 
@@ -238,12 +262,12 @@ This is a CFW option made available to tinkerers to explore possible improvement
 
 ### Use Media Engine 2
 
-Controls wether to load an alternative implementation of the Media Engine module, i.e. loads `kermit_me_wrapper_2.prx` instead of `kermit_me_wrapper.prx`.
+Controls whether to load an alternative implementation of the Media Engine module, i.e. loads `kermit_me_wrapper_2.prx` instead of `kermit_me_wrapper.prx`.
 
 This is a CFW option made available to tinkerers to explore possible improvement options for apps/games (considering that native PSPemu has similar options for compatibility with officially released PSP titles on VITA). But it is also an advanced option as it may also cause regressions and/or issues with apps/games.
 
 > [!NOTE]
-> The modules being called "2" doesn't mean it is a improved version, but rather a poorly named alternative version to be used as compatibility fixer for a small number of officially released titles.
+> The modules being called "2" doesn't mean it is an improved version, but rather a poorly named alternative version to be used as compatibility fixer for a small number of officially released titles.
 >
 > So it is a direct effect of a bad naming because programmers (usually with tight deadlines) are bad at naming things that are very similar in functionality with another existing thing, more so in a thing that is not supposed to be known by end-users... Been there, done that LOL.
 
@@ -342,7 +366,7 @@ Epinephrine's UMDemu drivers have the ability to simulate the **slower** read sp
 
 This setting allows to control a factor of how much **slower** is that read speed simulation.
 
-This can be used to bypass the anti-CFW checks in some games and fix desynchronization issues on some other games. Epinephrine automatically sets for games known to have those checks and/or desyc issues when both [seek](./08-CfwConfiguration.md#umdemu-iso-seek-time-delay-factor) and read time are set to `Auto`.
+This can be used to bypass the anti-CFW checks in some games and fix desynchronization issues on some other games. Epinephrine automatically sets for games known to have those checks and/or desync issues when both [seek](./08-CfwConfiguration.md#umdemu-iso-seek-time-delay-factor) and read time are set to `Auto`.
 
 #### Option:
 

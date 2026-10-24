@@ -16,31 +16,14 @@
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define N_FILES (sizeof(files) / sizeof(char **))
+#ifndef FILES_H
+#define FILES_H
 
-char *files[] = {
+#define N_FILES (sizeof(files) / sizeof(files[0]))
+
+static const char * const files[] = {
 	// "/codepage/cptbl.dat",
 	// "/data/cert/CA_LIST.cer",
-	// "/font/gb3s1518.bwfon",
-	// "/font/imagefont.bin",
-	// "/font/jpn0.pgf",
-	// "/font/kr0.pgf",
-	// "/font/ltn0.pgf",
-	// "/font/ltn1.pgf",
-	// "/font/ltn10.pgf",
-	// "/font/ltn11.pgf",
-	// "/font/ltn12.pgf",
-	// "/font/ltn13.pgf",
-	// "/font/ltn14.pgf",
-	// "/font/ltn15.pgf",
-	// "/font/ltn2.pgf",
-	// "/font/ltn3.pgf",
-	// "/font/ltn4.pgf",
-	// "/font/ltn5.pgf",
-	// "/font/ltn6.pgf",
-	// "/font/ltn7.pgf",
-	// "/font/ltn8.pgf",
-	// "/font/ltn9.pgf",
 	// "/kd/amctrl.prx",
 	// "/kd/audiocodec_260.prx",
 	"/kd/avcodec.prx",
@@ -206,4 +189,26 @@ char *files[] = {
 	// "/vsh/resource/store_checkout_plugin.rco",
 	// "/vsh/resource/system_plugin.rco",
 	// "/vsh/resource/system_plugin_fg.rco",
+	"/font/gb3s1518.bwfon",
+	"/font/imagefont.bin",
+	"/font/jpn0.pgf",
+	"/font/kr0.pgf",
+	"/font/ltn0.pgf",
+	"/font/ltn1.pgf",
+	"/font/ltn10.pgf",
+	"/font/ltn11.pgf",
+	"/font/ltn12.pgf",
+	"/font/ltn13.pgf",
+	"/font/ltn14.pgf",
+	"/font/ltn15.pgf",
+	"/font/ltn2.pgf",
+	"/font/ltn3.pgf",
+	"/font/ltn4.pgf",
+	"/font/ltn5.pgf",
+	"/font/ltn6.pgf",
+	"/font/ltn7.pgf",
+	"/font/ltn8.pgf",
+	"/font/ltn9.pgf",
 };
+
+#endif

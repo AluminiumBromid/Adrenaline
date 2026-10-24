@@ -163,7 +163,7 @@ int sceUmdGetDriveStat() {
 	int res = g_drivestat;
 
 	pspSdkSetK1(k1);
-	logmsg2("%s: () -> 0x%08X\n", __func__, res);
+	logmsg3("[DEBUG]: %s: () -> 0x%08X\n", __func__, res);
 	return res;
 }
 
@@ -321,7 +321,7 @@ int InitMediaMan() {
 		return g_mediaman_sema;
 	}
 
-	logmsg4("[INFO]: Media man inited.\n");
+	logmsg4("[INFO]: MediaMan initialized.\n");
 
 	return 0;
 }

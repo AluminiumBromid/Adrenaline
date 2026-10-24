@@ -25,7 +25,7 @@ static char *g_endisabled[] = { "Enabled", "Disabled" };
 static char *g_umdmodes[] = { "Inferno", "M33 Driver", "ME Driver", "Sony NP9660" };
 static char *g_extendedcolors[] = { "Disabled", "02g", "03g" };
 static char *g_cpuspeeds[] = { "Default", "20/10", "75/37", "100/50", "133/66", "222/111", "266/133", "300/150", "333/166" };
-static char *g_highmem[] = { "Default", "Stable", "Max" };
+static char *g_highmem[] = {"Default", "Force Stable", "Force Max", "Force Disabled"};
 
 static char *g_buttonassign[] = { "O is enter", "X is enter" };
 
@@ -54,5 +54,6 @@ static char *g_umd_seek_read_strat[] = {"Auto", "Per FD", "Global"};
 static char *g_hide_pics[] = {"Disabled", "Both", "PIC0 Only", "PIC1 Only"};
 static char *g_fake_free_mem[] = {"Auto", "16MB", "24MB", "32MB", "40MB", "48MB", "52MB", "60MB", "64MB"};
 static char *g_vsh_menu_opt[] = { "Modern", "Classic" };
+static char *g_psp_game_plugin_opt[] = { "Try Extra RAM", "Game RAM" };
 
 #endif

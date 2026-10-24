@@ -16,22 +16,12 @@
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <psp2/appmgr.h>
-#include <psp2/apputil.h>
-#include <psp2/ctrl.h>
-#include <psp2/display.h>
 #include <psp2/rtc.h>
-#include <psp2/system_param.h>
-#include <psp2/sysmodule.h>
-#include <psp2/power.h>
 #include <psp2/io/dirent.h>
 #include <psp2/io/fcntl.h>
 #include <psp2/io/stat.h>
-#include <psp2/kernel/sysmem.h>
-#include <psp2/kernel/processmgr.h>
 
 #include <stdio.h>
-#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -39,44 +29,43 @@
 
 #include "main.h"
 #include "menu.h"
+#include "pops.h"
 #include "states.h"
 #include "usb.h"
 #include "utils.h"
 
-AdrenalineStateEntry *states;
+static AdrenalineStateEntry *states;
 
-static int option_sel =  0;
+static int option_sel = 0;
 static int rel_pos = 0, base_pos = 0;
 
 int open_options = 0;
 
-static char *option_entries_new[] = {
+static const char * const option_entries_new[] = {
 	"Save State",
 	"Cancel",
 };
 
-static char *option_entries_exist[] = {
+static const char * const option_entries_exist[] = {
 	"Load State",
 	"Overwrite State",
 	"Delete State",
 	"Cancel",
 };
 
-#define N_OPTION_ENTRIES_NEW (sizeof(option_entries_new) / sizeof(char **))
-#define N_OPTION_ENTRIES_EXIST (sizeof(option_entries_exist) / sizeof(char **))
+#define N_OPTION_ENTRIES_NEW (sizeof(option_entries_new) / sizeof(option_entries_new[0]))
+#define N_OPTION_ENTRIES_EXIST (sizeof(option_entries_exist) / sizeof(option_entries_exist[0]))
 
 #define OPTION_MODE_NEW 0
 #define OPTION_MODE_EXIST 1
 
-static char **option_entries;
+static const char * const *option_entries;
 static int n_options = 0;
 static int option_mode = 0;
 
 void makeSaveStatePath(char *path, int num) {
-	sprintf(path, "%s/PSP/SAVESTATE/STATE%02d.BIN", getPspemuMemoryStickLocation(), num);
+	snprintf(path, 128, "%s/PSP/SAVESTATE/STATE%02d.BIN", getPspemuMemoryStickLocation(), num);
 }
-
-extern void *pops_data;
 
 static uint32_t convert565To8888(uint16_t color) {
 	uint8_t red_value = (color & 0xF800) >> 11;
@@ -91,7 +80,7 @@ static uint32_t convert565To8888(uint16_t color) {
 	return (alpha << 24) | (red << 16) | (green << 8) | blue;
 }
 
-int saveFrameBuffer(SceUID fd) {
+static int saveFrameBuffer(SceUID fd) {
 	sceCompatLCDCSync();
 
 	uint32_t *buf = malloc(SCREENSHOT_SIZE);
@@ -140,11 +129,11 @@ int saveFrameBuffer(SceUID fd) {
 	return 0;
 }
 
-void saveState(int num) {
+static void saveState(int num) {
 	char path[128];
 
 	// Make dir
-	sprintf(path, "%s/PSP/SAVESTATE", getPspemuMemoryStickLocation());
+	snprintf(path, sizeof(path), "%s/PSP/SAVESTATE", getPspemuMemoryStickLocation());
 	sceIoMkdir(path, 0777);
 
 	makeSaveStatePath(path, num);
@@ -166,7 +155,7 @@ void saveState(int num) {
 	SendAdrenalineRequest(ADRENALINE_PSP_CMD_SAVESTATE);
 }
 
-void loadState(int num) {
+static void loadState(int num) {
 	SceAdrenaline *adrenaline = (SceAdrenaline *)ScePspemuConvertAddress(ADRENALINE_ADDRESS, KERMIT_OUTPUT_MODE, ADRENALINE_SIZE);
 	adrenaline->num = num;
 	ScePspemuWritebackCache(adrenaline, ADRENALINE_SIZE);
@@ -175,7 +164,7 @@ void loadState(int num) {
 	SendAdrenalineRequest(ADRENALINE_PSP_CMD_LOADSTATE);
 }
 
-void deleteState(int num) {
+static void deleteState(int num) {
 	char path[128];
 	makeSaveStatePath(path, num);
 
@@ -190,7 +179,7 @@ void deleteState(int num) {
 	}
 }
 
-void finishStates() {
+void finishStates(void) {
 	if (states) {
 		for (int i = 0; i < MAX_STATES; i++) {
 			if (states[i].num != -1) {
@@ -205,7 +194,7 @@ void finishStates() {
 	}
 }
 
-int initStates() {
+int initStates(void) {
 	option_sel = 0;
 	open_options = 0;
 
@@ -221,7 +210,7 @@ int initStates() {
 
 	// Load savestates
 	char folder[128];
-	sprintf(folder, "%s/PSP/SAVESTATE", getPspemuMemoryStickLocation());
+	snprintf(folder, sizeof(folder), "%s/PSP/SAVESTATE", getPspemuMemoryStickLocation());
 
 	SceUID dfd = sceIoDopen(folder);
 	if (dfd >= 0) {
@@ -294,7 +283,7 @@ int initStates() {
 	return 0;
 }
 
-void drawStates() {
+void drawStates(void) {
 	if (!states)
 		return;
 
@@ -318,10 +307,10 @@ void drawStates() {
 			pgf_draw_text(250.0f, FONT_Y_LINE(2 + i * 5), WHITE, FONT_SIZE, states[base_pos + i].title);
 
 			// Date & time
-			char date_string[16];
+			char date_string[24];
 			getDateString(date_string, date_format, &states[base_pos + i].time);
 
-			char time_string[24];
+			char time_string[16];
 			getTimeString(time_string, time_format, &states[base_pos + i].time);
 
 			pgf_draw_textf(250.0f, FONT_Y_LINE(3 + i * 5), WHITE, FONT_SIZE, "%s %s", date_string, time_string);
@@ -342,7 +331,7 @@ void drawStates() {
 	}
 }
 
-void ctrlStates() {
+void ctrlStates(void) {
 	if (!states) {
 		return;
 	}

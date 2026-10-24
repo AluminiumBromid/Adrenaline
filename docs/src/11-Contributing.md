@@ -77,7 +77,7 @@ cmake --build cef/build
 Then, you have to build the VITA-side part:
 
 ```sh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCEF_CMAKE=1
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
@@ -126,7 +126,7 @@ It is recommended to use the specific ones. Another recommendation is to avoid u
 > psp-cmake -S cef -B cef/build -DSYSTEMCTRL_DEBUG=2 -DPENTAZEMIN_DEBUG=1
 > ```
 
-On the **VITA-side**, we don't have something super well stablished, you can use `sceClibPrintf` function, and the messages will show up in the `tty`, that you can access through log homebrews (we recommend [catlog](https://github.com/isage/catlog)).
+On the **VITA-side**, we don't have something super well established, you can use `sceClibPrintf` function, and the messages will show up in the `tty`, that you can access through log homebrews (we recommend [catlog](https://github.com/isage/catlog)).
 
 ### Accessing the logs
 

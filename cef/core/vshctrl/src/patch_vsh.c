@@ -31,7 +31,7 @@
 #include <systemctrl.h>
 #include <systemctrl_se.h>
 
-#include <systemctrl_adrenaline.h>
+#include <systemctrl_epi.h>
 #include <adrenaline_log.h>
 
 #include "virtualpbpmgr.h"
@@ -75,7 +75,7 @@ static void CheckControllerInput() {
 	sceCtrlPeekBufferPositive(&pad_data, 1);
 	if ((pad_data.Buttons & PSP_CTRL_RTRIGGER) == PSP_CTRL_RTRIGGER) {
 		g_exec_boot_bin = 1;
-		logmsg2("[INFO]: Set to exec BOOT.BIN (if exist) by holding `R` at the ISO application start\n");
+		logmsg("[INFO]: Set to exec BOOT.BIN (if exist) by holding `R` at the ISO application start\n");
 	}
 }
 
@@ -84,8 +84,8 @@ static const char* fix_path_on_ef(const char *file) {
 		static char fixed[256] = {0};
 
 		// When the system reboots to launch the game, `ef0:` is not yet available, so we use the ms0 magic path to ef0 driver
-		memset(fixed, 0, 256);
-		snprintf(fixed, 255, "ms0:/__ef0__%s", file+4);
+		memset(fixed, 0, sizeof(fixed));
+		snprintf(fixed, sizeof(fixed)-1, "ms0:/__ef0__%s", file+4);
 		return fixed;
 	} else {
 		return file;

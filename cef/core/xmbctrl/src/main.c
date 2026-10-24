@@ -25,7 +25,7 @@
 
 #include <vshctrl.h>
 #include <systemctrl.h>
-#include <systemctrl_adrenaline.h>
+#include <systemctrl_epi.h>
 #include <cfwmacros.h>
 
 #define _ADRENALINE_LOG_IMPL_
@@ -63,61 +63,63 @@ GetItem g_menu_items[] = {
 	{17, 1, "NoDRM engine", 1, 0, &g_cfw_config.no_nodrm_engine},
 	{18, 1, "XMB CFW Settings", 1, 0, &g_cfw_config.no_xmb_cfw_items},
 	{19, 0, "VSH Menu", 1, 0, &g_cfw_config.vsh_menu},
-	{20, 0, "Force high memory layout", 0, 1, &g_cfw_config.force_high_memory},
+	{20, 0, "High memory layout", 0, 1, &g_cfw_config.high_memory},
 	{21, 0, "Fake max free memory", 0, 1, &g_cfw_config.fake_max_free_mem},
-	{22, 0, "Use Graphic Engine 2", 0, 1, &g_cfw_config.use_ge2},
-	{23, 0, "Use Media Engine 2", 0, 1, &g_cfw_config.use_me2},
-	{24, 0, "Execute BOOT.BIN in UMDemu ISO", 0, 1, &g_cfw_config.execute_boot_bin},
-	{25, 0, "Inferno ISO cache policy", 0, 1, &g_cfw_config.iso_cache},
-	{26, 0, "Inferno ISO cache number", 0, 1, &g_cfw_config.iso_cache_num},
-	{27, 0, "Inferno ISO cache size", 0, 1, &g_cfw_config.iso_cache_size},
-	{28, 0, "UMDemu ISO seek time delay factor", 0, 1, &g_cfw_config.umd_seek},
-	{29, 0, "UMDemu ISO read speed delay factor", 0, 1, &g_cfw_config.umd_speed},
-	{30, 0, "UMDemu ISO seek/read delay strategy", 0, 1, &g_cfw_config.umd_sim_strat},
-	{31, 0, "TTY redirection", 1, 1, &g_cfw_config.tty_redirection },
-	{32, 1, "XMB Plugins", 1, 1, &g_cfw_config.no_xmb_plugins},
-	{33, 1, "Game Plugins", 0, 1, &g_cfw_config.no_game_plugins},
-	{34, 1, "POPS Plugins", 0, 1, &g_cfw_config.no_pops_plugins},
+	{22, 0, "PSP game/app plugin RAM Partition", 0, 1, &g_cfw_config.psp_game_plugin_ram},
+	{23, 0, "Use Graphic Engine 2", 0, 1, &g_cfw_config.use_ge2},
+	{24, 0, "Use Media Engine 2", 0, 1, &g_cfw_config.use_me2},
+	{25, 0, "Execute BOOT.BIN in UMDemu ISO", 0, 1, &g_cfw_config.execute_boot_bin},
+	{26, 0, "Inferno ISO cache policy", 0, 1, &g_cfw_config.iso_cache},
+	{27, 0, "Inferno ISO cache number", 0, 1, &g_cfw_config.iso_cache_num},
+	{28, 0, "Inferno ISO cache size", 0, 1, &g_cfw_config.iso_cache_size},
+	{29, 0, "UMDemu ISO seek time delay factor", 0, 1, &g_cfw_config.umd_seek},
+	{30, 0, "UMDemu ISO read speed delay factor", 0, 1, &g_cfw_config.umd_speed},
+	{31, 0, "UMDemu ISO seek/read delay strategy", 0, 1, &g_cfw_config.umd_sim_strat},
+	{32, 0, "TTY redirection", 1, 1, &g_cfw_config.tty_redirection },
+	{33, 1, "XMB Plugins", 1, 1, &g_cfw_config.no_xmb_plugins},
+	{34, 1, "Game Plugins", 0, 1, &g_cfw_config.no_game_plugins},
+	{35, 1, "POPS Plugins", 0, 1, &g_cfw_config.no_pops_plugins},
 };
 
 #define N_ITEMS (sizeof(g_menu_items) / sizeof(GetItem))
 
 ItemOptions g_item_opts[] = {
-	{0, NULL},                      // None
-	{3, g_plugins_options},           // Plugins
-	{9, g_cpuspeeds_options},         // Clock VSH
-	{9, g_cpuspeeds_options},         // Clock Game
-	{3, g_umd_driver_options},        // UMD driver
-	{2, g_boolean_options},           // Skip ColdBoot logo
-	{2, g_boolean_options},           // Skip GameBoot logo
-	{2, g_boolean_options},           // Hide corrupt icons
-	{2, g_boolean_options},           // Hide DLCs in game menu
-	{NELEMS(g_hide_pics_options), g_hide_pics_options}, // Hide PIC0/PIC1.PNG in game menu
-	{2, g_boolean_options},           // Hide MAC address
-	{2, g_boolean_options},           // Hide CFW files in PSP games
-	{2, g_boolean_options},           // Autorun /PSP/GAME/BOOT/EBOOT.PBP
-	{NELEMS(g_region_options), g_region_options}, // Fake region
-	{3, g_use_extended_color_option}, // Use extended color
-	{2, g_boolean_options},           // Use Sony PSP OSK
-	{2, g_boolean_options},           // Memory Stick Cache
-	{2, g_boolean_options},           // Use NoDRM Engine
-	{2, g_boolean_options},           // XMB Control
-	{2, g_vsh_menu_opt},              // VSH Menu
-	{3, g_highmem_options},           // Force high memory layout
-	{NELEMS(g_fake_free_mem), g_fake_free_mem}, // Fake max free memory
-	{2, g_boolean_options},           // Use Graphic Engine 2
-	{2, g_boolean_options},           // Use Media Engine 2
-	{2, g_boolean_options},           // Execute BOOT.BIN in Game
-	{NELEMS(g_iso_cache_options), g_iso_cache_options}, // ISO cache kind
-	{NELEMS(g_iso_cache_num_options), g_iso_cache_num_options}, // ISO cache number
-	{NELEMS(g_iso_cache_size_options), g_iso_cache_size_options}, // ISO cache size
-	{NELEMS(g_iso_umd_seek_read_options), g_iso_umd_seek_read_options}, // ISO UMD seek delay
-	{NELEMS(g_iso_umd_seek_read_options), g_iso_umd_seek_read_options}, // ISO UMD read speed delay
-	{NELEMS(g_iso_umd_seek_read_strat_options), g_iso_umd_seek_read_strat_options}, // ISO UMD read/seek strategy
-	{2, g_boolean_options},           // TTY redirection
-	{2, g_boolean_options},           // VSH/XMB Plugins
-	{2, g_boolean_options},           // Game Plugins
-	{2, g_boolean_options},           // POPS Plugins
+	{0, NULL},                                   // None
+	ITEM_OPT(g_plugins_options),                 // Plugins
+	ITEM_OPT(g_cpuspeeds_options),               // Clock VSH
+	ITEM_OPT(g_cpuspeeds_options),               // Clock Game
+	ITEM_OPT(g_umd_driver_options),              // UMD driver
+	ITEM_OPT(g_boolean_options),                 // Skip ColdBoot logo
+	ITEM_OPT(g_boolean_options),                 // Skip GameBoot logo
+	ITEM_OPT(g_boolean_options),                 // Hide corrupt icons
+	ITEM_OPT(g_boolean_options),                 // Hide DLCs in game menu
+	ITEM_OPT(g_hide_pics_options),               // Hide PIC0/PIC1.PNG in game menu
+	ITEM_OPT(g_boolean_options),                 // Hide MAC address
+	ITEM_OPT(g_boolean_options),                 // Hide CFW files in PSP games
+	ITEM_OPT(g_boolean_options),                 // Autorun /PSP/GAME/BOOT/EBOOT.PBP
+	ITEM_OPT(g_region_options),                  // Fake region
+	ITEM_OPT(g_use_extended_color_option),       // Use extended color
+	ITEM_OPT(g_boolean_options),                 // Use Sony PSP OSK
+	ITEM_OPT(g_boolean_options),                 // Memory Stick Cache
+	ITEM_OPT(g_boolean_options),                 // Use NoDRM Engine
+	ITEM_OPT(g_boolean_options),                 // XMB Control
+	ITEM_OPT(g_vsh_menu_opt),                    // VSH Menu
+	ITEM_OPT(g_highmem_options),                 // Force high memory layout
+	ITEM_OPT(g_fake_free_mem),                   // Fake max free memory
+	ITEM_OPT(g_psp_game_plugin_opt),             // PSP game/app plugin RAM Partition
+	ITEM_OPT(g_boolean_options),                 // Use Graphic Engine 2
+	ITEM_OPT(g_boolean_options),                 // Use Media Engine 2
+	ITEM_OPT(g_boolean_options),                 // Execute BOOT.BIN in Game
+	ITEM_OPT(g_iso_cache_options),               // ISO cache kind
+	ITEM_OPT(g_iso_cache_num_options),           // ISO cache number
+	ITEM_OPT(g_iso_cache_size_options),          // ISO cache size
+	ITEM_OPT(g_iso_umd_seek_read_options),       // ISO UMD seek delay
+	ITEM_OPT(g_iso_umd_seek_read_options),       // ISO UMD read speed delay
+	ITEM_OPT(g_iso_umd_seek_read_strat_options), // ISO UMD read/seek strategy
+	ITEM_OPT(g_boolean_options),                 // TTY redirection
+	ITEM_OPT(g_boolean_options),                 // VSH/XMB Plugins
+	ITEM_OPT(g_boolean_options),                 // Game Plugins
+	ITEM_OPT(g_boolean_options),                 // POPS Plugins
 };
 
 static STMOD_HANDLER previous = NULL;

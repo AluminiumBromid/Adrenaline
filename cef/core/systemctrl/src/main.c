@@ -28,7 +28,7 @@
 #include <cfwmacros.h>
 #include <systemctrl.h>
 #include <infernoctrl.h>
-#include <systemctrl_adrenaline.h>
+#include <systemctrl_epi.h>
 
 #define _ADRENALINE_LOG_IMPL_
 #include <adrenaline_log.h>
@@ -50,7 +50,6 @@ RebootexConfigEPI g_rebootex_config;
 SEConfigEPI g_cfw_config;
 SceAdrenaline *g_adrenaline = (SceAdrenaline *)ADRENALINE_ADDRESS;
 
-static int g_idle = 0;
 static int g_is_tty_redir_init = 0;
 
 static int g_cpu_list[] = { 0, 20, 75, 100, 133, 222, 266, 300, 333 };
@@ -134,7 +133,7 @@ static void OnSystemStatusIdle() {
 
 		// Handle Inferno Iso cache
 		if (g_rebootex_config.bootfileindex == MODE_INFERNO && g_cfw_config.iso_cache != CACHE_CONFIG_OFF) {
-			if (g_rebootex_config.ram2 > 24 || g_cfw_config.force_high_memory != HIGHMEM_OPT_OFF) {
+			if (g_rebootex_config.ram2 > 24 || g_cfw_config.high_memory != HIGHMEM_OPT_DEFAULT || g_cfw_config.high_memory != HIGHMEM_OPT_FORCE_OFF) {
 				g_cfw_config.iso_cache_partition = 2;
 			} else {
 				g_cfw_config.iso_cache_partition = 11;
@@ -203,7 +202,7 @@ static int OnModuleStart(SceModule *mod) {
 	// Load SE config from file
 	if (load_file_config) {
 		int res = sctrlSEGetConfig((SEConfig*)&g_cfw_config);
-		logmsg("[DEBUG]: sctrlSEGetConfig -> 0x%08X\n", res);
+		logmsg("[DEBUG]: %s: sctrlSEGetConfig -> 0x%08X\n", __func__, res);
 		if (res == 0) {
 			load_file_config = 0;
 			// configure Pentazemin
@@ -277,19 +276,26 @@ static int OnModuleStart(SceModule *mod) {
 		HIJACK_FUNCTION(_KernelExitVSH, sctrlKernelExitVSH, _sceKernelExitVSH);
 
 	} else if (strcmp(modname, "scePower_Service") == 0) {
-		logmsg3("[INFO]: Built: %s %s\n", __DATE__, __TIME__);
-		logmsg3("[INFO]: Boot From: 0x%X\n", sceKernelBootFrom());
-		logmsg3("[INFO]: App Type: 0x%X\n", sceKernelApplicationType());
-		logmsg3("[INFO]: Apitype: 0x%X\n", sceKernelInitApitype());
-		logmsg3("[INFO]: Filename: %s\n", sceKernelInitFileName());
+		logmsg("[INFO]: Built: %s %s\n", __DATE__, __TIME__);
+		logmsg("[INFO]: Boot From: 0x%X\n", sceKernelBootFrom());
+		logmsg("[INFO]: App Type: 0x%X\n", sceKernelApplicationType());
+		logmsg("[INFO]: Apitype: 0x%X\n", sceKernelInitApitype());
+		logmsg("[INFO]: Fake Apitype: 0x%X\n", g_adrenaline->fake_api_type);
+		logmsg("[INFO]: Filename: %s\n", sceKernelInitFileName());
 
-		if (sceKernelApplicationType() == PSP_INIT_KEYCONFIG_GAME  && g_cfw_config.force_high_memory != HIGHMEM_OPT_OFF) {
-			if (g_cfw_config.force_high_memory == HIGHMEM_OPT_STABLE) {
+		if (g_cfw_config.high_memory == HIGHMEM_OPT_FORCE_OFF) {
+			// Set to normal and not allow to change it.
+			sctrlHENSetMemory(24, 16);
+			ApplyMemory();
+
+		} else if (sceKernelApplicationType() == PSP_INIT_KEYCONFIG_GAME  && g_cfw_config.high_memory != HIGHMEM_OPT_DEFAULT) {
+			if (g_cfw_config.high_memory == HIGHMEM_OPT_FORCE_STABLE) {
 				sctrlHENSetMemory(40, 0);
-			} else if (g_cfw_config.force_high_memory == HIGHMEM_OPT_MAX) {
+			} else if (g_cfw_config.high_memory == HIGHMEM_OPT_FORCE_MAX) {
 				sctrlHENSetMemory(52, 0);
 			}
 			ApplyMemory();
+
 		} else {
 			// If not force-high-memory. Make sure to make p11 as big as
 			// possible (stable), but in a state that if a game request
@@ -309,7 +315,7 @@ static int OnModuleStart(SceModule *mod) {
 
 	} else if (strcmp(modname, "sceUtility_Driver") == 0) {
 		findAndSetTitleId();
-		logmsg3("[INFO]: Title ID: %s\n", g_rebootex_config.title_id);
+		logmsg("[INFO]: Title ID: %s\n", g_rebootex_config.title_id);
 		CheckControllerInput();
 
 	} else if (strcmp(modname, "sceMediaSync") == 0) {
@@ -347,13 +353,6 @@ static int OnModuleStart(SceModule *mod) {
 
 	}
 
-	if (!g_idle) {
-		if (sctrlHENIsSystemBooted()) {
-			g_idle = 1;
-			OnSystemStatusIdle();
-		}
-	}
-
 	logmsg3("[DEBUG]: %s: mod_name=%s — text_addr=0x%08lX\n", __func__, modname, text_addr);
 	register_resident_libs(mod);
 
@@ -375,7 +374,8 @@ int module_start(SceSize args, void *argp) {
 		memcpy(&g_cfw_config, (void *)EPI_CONFIG_ADDR, sizeof(SEConfigEPI));
 	}
 
-	sctrlHENSetStartModuleHandler((STMOD_HANDLER)OnModuleStart);
+	sctrlHENSetStartModuleHandler(OnModuleStart);
+	sctrlHENSetSystemBootedHandler(OnSystemStatusIdle);
 
 	UnprotectExtraMemory();
 

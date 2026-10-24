@@ -32,11 +32,12 @@
 #include <bootloadex.h>
 #include <systemctrl.h>
 #include <systemctrl_se.h>
+#include <systemctrl_epi.h>
 
 #include <adrenaline_log.h>
 
 #include "externs.h"
-#include <systemctrl_adrenaline.h>
+#include <systemctrl_epi.h>
 
 #include "rebootex.h"
 #include "plugin.h"
@@ -47,6 +48,7 @@
 #define EXTRA_RAM_SETTABLE (0)
 
 STMOD_HANDLER g_module_handler = NULL;
+SYSBOOT_HANDLER g_on_system_booted_handler = NULL;
 
 
 static int (* RunReboot)(u32 *params) = NULL;
@@ -178,7 +180,7 @@ void CheckControllerInput() {
 	_sceCtrlPeekBufferPositive(&pad_data, 1);
 	if ((pad_data.Buttons & PSP_CTRL_LTRIGGER) == PSP_CTRL_LTRIGGER) {
 		g_disable_plugins = 1;
-		logmsg2("[INFO]: Plugins disabled by holding `L` at the application start\n");
+		logmsg("[INFO]: Plugins disabled by holding `L` at the application start\n");
 	}
 }
 
@@ -292,7 +294,10 @@ int sceSystemFileGetIndexPatched(void *sfo, void *a1, void *a2) {
 			}
 		}
 
-		if (largememory == 1) {
+		if (g_cfw_config.high_memory == HIGHMEM_OPT_FORCE_OFF) {
+			sctrlHENSetMemory(24, 16);
+			ApplyMemory();
+		} if (largememory == 1) {
 			sctrlHENSetMemory(52, 0);
 			ApplyMemory();
 		} else if (largememory == 2) {
@@ -316,7 +321,7 @@ int RunRebootPatched(u32 *params) {
 		if (g_rebootex_config.bootfileindex != MODE_RECOVERY) {
 			g_rebootex_config.bootfileindex = MODE_UMD;
 		}
-		memset(g_rebootex_config.umdfilename, 0, 256);
+		memset(g_rebootex_config.umdfilename, 0, sizeof(g_rebootex_config.umdfilename));
 	}
 
 	return RunReboot(params);
@@ -546,7 +551,12 @@ void PatchPluginModule(SceModule *mod) {
 	sctrlHookImportByNID(mod, sysmemlib, 0x3FC9AE6A, &sctrlHENFakeDevkitVersion);
 
 	// If p11 is too small and module is a user module, patch function to use p2 instead of p11
-	if (((mod->mod_state & SCE_MODULE_USER_MODULE) && (g_rebootex_config.ram11 * 1024 * 1024) <= g_plugins_loaded_mem) || g_rebootex_config.ram11 <= 2) {
+
+	if ((mod->mod_state & SCE_MODULE_USER_MODULE)
+		&& g_cfw_config.high_memory == HIGHMEM_OPT_DEFAULT
+		&& ((g_rebootex_config.ram11 * 1024 * 1024) <= g_plugins_loaded_mem
+			||  g_rebootex_config.ram11 <= 2))
+	{
 		sctrlHookImportByNID(mod, "ThreadManForUser", 0x446D8DE6, sceKernelCreateThreadPluginPatched);
 		sctrlHookImportByNID(mod, "SysMemUserForUser", 0x237DBD4F, sceKernelAllocPartitionMemoryPluginPatched);
 	}
