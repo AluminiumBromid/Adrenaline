@@ -20,10 +20,7 @@
 #include <psp2/display.h>
 #include <psp2/rtc.h>
 #include <psp2/system_param.h>
-#include <psp2/io/dirent.h>
 #include <psp2/io/fcntl.h>
-#include <psp2/io/stat.h>
-#include <psp2/kernel/modulemgr.h>
 #include <psp2/kernel/sysmem.h>
 #include <psp2/kernel/processmgr.h>
 
@@ -36,16 +33,14 @@
 #include "utils.h"
 
 Pad old_pad, current_pad, pressed_pad, released_pad, hold_pad, hold2_pad;
-Pad hold_count, hold2_count;
+static Pad hold_count, hold2_count;
 
-int SCE_CTRL_ENTER = SCE_CTRL_CROSS, SCE_CTRL_CANCEL = SCE_CTRL_CIRCLE;
-
-int debugPrintf(char *text, ...) {
+int debugPrintf(const char *text, ...) {
 	va_list list;
 	char string[512];
 
 	va_start(list, text);
-	vsprintf(string, text, list);
+	vsnprintf(string, sizeof(string), text, list);
 	va_end(list);
 
 	SceUID fd = sceIoOpen("ux0:data/adrenaline_user_log.txt", SCE_O_WRONLY | SCE_O_CREAT | SCE_O_APPEND, 0777);
@@ -57,7 +52,7 @@ int debugPrintf(char *text, ...) {
 	return 0;
 }
 
-int ReadFile(char *file, void *buf, int size) {
+int ReadFile(const char *file, void *buf, int size) {
 	SceUID fd = sceIoOpen(file, SCE_O_RDONLY, 0);
 	if (fd < 0) {
 		return fd;
@@ -69,7 +64,7 @@ int ReadFile(char *file, void *buf, int size) {
 	return read;
 }
 
-int WriteFile(char *file, void *buf, int size) {
+int WriteFile(const char *file, const void *buf, int size) {
 	SceUID fd = sceIoOpen(file, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0777);
 	if (fd < 0) {
 		return fd;
@@ -82,7 +77,7 @@ int WriteFile(char *file, void *buf, int size) {
 }
 
 extern int enter_button;
-void readPad() {
+void readPad(void) {
 	SceCtrlData pad;
 	sceCtrlPeekBufferPositive(0, &pad, 1);
 
@@ -237,7 +232,7 @@ int doubleClick(uint32_t buttons, uint64_t max_time) {
 
 void getSizeString(char string[16], uint64_t size) {
 	int i = 0;
-	static char *units[] = { "B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB" };
+	static const char * const units[] = { "B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB" };
 	while (size > 1024) {
 		size >>= 10;
 		i++;
@@ -246,14 +241,14 @@ void getSizeString(char string[16], uint64_t size) {
 	snprintf(string, 16, "%.*lld %s", (i == 0) ? 0 : 2, size, units[i]);
 }
 
-void convertUtcToLocalTime(SceDateTime *time_local, SceDateTime *time_utc) {
+static void convertUtcToLocalTime(SceDateTime *time_local, const SceDateTime *time_utc) {
 	SceRtcTick tick;
 	sceRtcGetTick(time_utc, &tick);
 	sceRtcConvertUtcToLocalTime(&tick, &tick);
 	sceRtcSetTick(time_local, &tick);
 }
 
-void getTimeString(char string[16], int time_format, SceDateTime *time) {
+void getTimeString(char string[16], int time_format, const SceDateTime *time) {
 	SceDateTime time_local;
 	convertUtcToLocalTime(&time_local, time);
 
@@ -269,7 +264,7 @@ void getTimeString(char string[16], int time_format, SceDateTime *time) {
 	}
 }
 
-void getDateString(char string[24], int date_format, SceDateTime *time) {
+void getDateString(char string[24], int date_format, const SceDateTime *time) {
 	SceDateTime time_local;
 	convertUtcToLocalTime(&time_local, time);
 
@@ -300,7 +295,7 @@ void SetPspemuFrameBuffer(void *base) {
 	sceDisplaySetFrameBuf(&framebuf, SCE_DISPLAY_SETBUF_NEXTFRAME);
 }
 
-char *getPspemuMemoryStickLocation() {
+char *getPspemuMemoryStickLocation(void) {
 	switch (config.ms_location) {
 		case MEMORY_STICK_LOCATION_UR0:
 			return "ur0:pspemu";
@@ -317,7 +312,7 @@ char *getPspemuMemoryStickLocation() {
 	}
 }
 
-char *getPspemuEfLocation() {
+char *getPspemuEfLocation(void) {
 	switch (config.ef_location) {
 		case EF_LOCATION_UMA0:
 			return "uma0:pspemu";
@@ -332,7 +327,7 @@ char *getPspemuEfLocation() {
 	}
 }
 
-char *getPspemuMemoryStickDevice() {
+char *getPspemuMemoryStickDevice(void) {
 	switch (config.ms_location) {
 		case MEMORY_STICK_LOCATION_UR0:
 			return "ur0:";
@@ -349,7 +344,7 @@ char *getPspemuMemoryStickDevice() {
 	}
 }
 
-char *getPspemuEfDevice() {
+char *getPspemuEfDevice(void) {
 	switch (config.ef_location) {
 		case EF_LOCATION_UX0:
 			return "ux0:";

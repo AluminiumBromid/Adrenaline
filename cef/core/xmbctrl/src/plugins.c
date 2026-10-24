@@ -60,27 +60,21 @@ static char * strtrim(char * text) {
 	return text;
 }
 
-static int readLine(char* source, char *str) {
-	u8 ch = 0;
+static int readLine(char * source, char *str, int str_size) {
 	int n = 0;
-	int i = 0;
 
-	while (1) {
-		if ((ch = source[i]) == 0) {
-			*str = 0;
-			return n;
+	while (source[n] != 0 && source[n] >= 0x20) {
+		if (n >= str_size - 1) {
+			str[0] = 0;
+			return -1;
 		}
 
+		str[n] = source[n];
 		n++;
-		i++;
-
-		if(ch < 0x20) {
-			*str = 0;
-			return n;
-		} else {
-			*str++ = ch;
-		}
 	}
+
+	str[n] = 0;
+	return n + (source[n] != 0);
 }
 
 // Parse and Process Line
@@ -169,11 +163,17 @@ static void ProcessPluginFile(char* path, int (process_line)(char*, char*, char*
 			int nread = 0;
 			int total_read = 0;
 
-			while ((nread=readLine((char*)buf+total_read, line)) > 0) {
+			while ((nread=readLine((char*)buf+total_read, line, LINE_BUFFER_SIZE)) > 0) {
 				total_read += nread;
 				// if (line[0] == 0) continue; // empty line
 				int dup_line_len = paf_strlen(line)+1;
 				char* dupline = paf_malloc(dup_line_len);
+
+				if (dupline == NULL) {
+					logmsg("[ERROR]: %s: Failed to allocate `%d` bytes\n", __func__, dup_line_len);
+					continue;
+				}
+
 				paf_memset(dupline, 0, dup_line_len);
 				paf_strncpy(dupline, line, dup_line_len);
 				// Process Line
@@ -207,6 +207,11 @@ static void list_cleaner(void* item) {
 static void processCustomLine(char* line) {
 	logmsg4("[DEBUG]: %s: Processing plugin custom line `%s`\n", __func__, line);
 	Plugin* plugin = (Plugin*)paf_malloc(sizeof(Plugin));
+
+	if (plugin == NULL) {
+		return;
+	}
+
 	paf_memset(plugin, 0, sizeof(Plugin));
 	plugin->path = line;
 	plugin->place = g_cur_place;
@@ -330,8 +335,8 @@ void savePlugins() {
 		if (plugin->name != NULL && plugin->runlevel != NULL) {
 			static char buf[256] = {0};
 			char *enabled = (plugin->active) ? "on" : "off";
-			paf_memset(buf, 0, 256);
-			paf_snprintf(buf, 255, "%s, %s, %s\n", plugin->runlevel, plugin->path, enabled);
+			paf_memset(buf, 0, sizeof(buf));
+			paf_snprintf(buf, sizeof(buf)-1, "%s, %s, %s\n", plugin->runlevel, plugin->path, enabled);
 			sceIoWrite(fd, buf, paf_strlen(buf));
 
 		  // Custom line

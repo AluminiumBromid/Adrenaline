@@ -17,26 +17,20 @@
 */
 
 #include <psp2kern/ctrl.h>
-#include <psp2kern/io/fcntl.h>
 #include <psp2kern/kernel/modulemgr.h>
-#include <psp2kern/kernel/threadmgr.h>
 #include <psp2kern/kernel/sysmem.h>
 #include <psp2kern/kernel/sysroot.h>
 #include <psp2kern/kernel/cpu.h>
-#include <psp2kern/kernel/debug.h>
+#include <psp2kern/lowio/iftu.h>
 #include <psp2common/display.h>
 
-#include <stdio.h>
 #include <string.h>
 
 #include <taihen.h>
 
-#include "utils.h"
-
 #include "../adrenaline_vita.h"
 
-int ksceKernelSysrootGetShellPid();
-int module_get_export_func(SceUID pid, const char *modname, uint32_t libnid, uint32_t funcnid, uintptr_t *func);
+int ksceKernelSysrootGetShellPid(void);
 
 static tai_hook_ref_t ksceKernelAllocMemBlockRef;
 static tai_hook_ref_t ksceKernelFreeMemBlockRef;
@@ -46,6 +40,10 @@ static tai_hook_ref_t sceCompatSecSetSSRAMAclRef;
 static tai_hook_ref_t ksceSblAimgrIsDEXRef;
 static tai_hook_ref_t ksceKernelStartPreloadedModulesRef;
 static tai_hook_ref_t ksceDisplaySetFrameBufInternalRef;
+static tai_hook_ref_t ksceIftuSetInputFrameBufferRef;
+
+static SceUID g_ksceIftuSetInputFrameBufferHook = -1;
+static volatile int g_pspemu_direct_sharp_scale = 0;
 
 static int hooks[9];
 static int n_hooks = 0;
@@ -55,7 +53,7 @@ static uint32_t module_nid;
 
 static uint8_t blanking = 0;
 static uint32_t blackline;
-static SceUID blackline_uid = 0;
+static SceUID blackline_uid = -1;
 static uint32_t volume = 0;
 
 static SceUID ksceKernelAllocMemBlockPatched(const char *name, SceKernelMemBlockType type, int size, SceKernelAllocMemBlockKernelOpt *optp) {
@@ -101,7 +99,7 @@ static int SceGrabForDriver_E9C25A28_patched(int unk, uint32_t paddr) {
 	return TAI_CONTINUE(int, SceGrabForDriver_E9C25A28_ref, unk, paddr);
 }
 
-static int sceCompatSecSetSSRAMAclPatched() {
+static int sceCompatSecSetSSRAMAclPatched(void) {
 	uint32_t a;
 
 	a = 0;
@@ -128,7 +126,7 @@ static int sceCompatSecSetSSRAMAclPatched() {
 	return TAI_CONTINUE(int, sceCompatSecSetSSRAMAclRef);
 }
 
-static int ksceSblAimgrIsDEXPatched() {
+static int ksceSblAimgrIsDEXPatched(void) {
 	TAI_CONTINUE(int, ksceSblAimgrIsDEXRef);
 	return 1;
 }
@@ -148,7 +146,7 @@ static int ksceKernelStartPreloadedModulesPatched(SceUID pid) {
 	return res;
 }
 
-int ksceDisplaySetFrameBufInternalPatched(int head, int index, const SceDisplayFrameBuf *pParam, int sync) {
+static int ksceDisplaySetFrameBufInternalPatched(int head, int index, const SceDisplayFrameBuf *pParam, int sync) {
 	if (!head || !pParam) {
 		goto DISPLAY_HOOK_RET;
 	}
@@ -157,13 +155,23 @@ int ksceDisplaySetFrameBufInternalPatched(int head, int index, const SceDisplayF
 		goto DISPLAY_HOOK_RET;
 	}
 
-	for( int i = 0; i < pParam->height; i++) {
+	for (unsigned int i = 0; i < pParam->height; i++) {
 		int off = i * pParam->pitch * 4;
 		ksceKernelMemcpyKernelToUser(pParam->base + off, (const void*)blackline, pParam->pitch * 4);
 	}
 
 DISPLAY_HOOK_RET:
 	return TAI_CONTINUE(int, ksceDisplaySetFrameBufInternalRef, head, index, pParam, sync);
+}
+
+static int ksceIftuSetInputFrameBufferPatched(int plane, SceIftuPlaneState *state, int bilinear, int sync_mode) {
+	if (g_pspemu_direct_sharp_scale && bilinear == 1 && state &&
+		state->fb.width == PSP_SCREEN_WIDTH && state->fb.height == PSP_SCREEN_HEIGHT)
+	{
+		bilinear = 0;
+	}
+
+	return TAI_CONTINUE(int, ksceIftuSetInputFrameBufferRef, plane, state, bilinear, sync_mode);
 }
 
 int kuCtrlPeekBufferPositive(int port, SceCtrlData *pad_data, int count) {
@@ -193,7 +201,9 @@ int adrStartBlanking(int vol) {
 	ENTER_SYSCALL(state);
 
 	blackline_uid = ksceKernelAllocMemBlock("blackline", SCE_KERNEL_MEMBLOCK_TYPE_KERNEL_RW, 1024*4, NULL);
-	ksceKernelGetMemBlockBase(blackline_uid, (void *)&blackline);
+	if (blackline_uid >= 0) {
+		ksceKernelGetMemBlockBase(blackline_uid, (void *)&blackline);
+	}
 
 	blanking = 1;
 	volume = vol;
@@ -202,7 +212,18 @@ int adrStartBlanking(int vol) {
 	return 0;
 }
 
-uint32_t adrStopBlanking() {
+int adrSetPspemuDirectSharpScale(int enabled) {
+	if (g_ksceIftuSetInputFrameBufferHook < 0) {
+		g_pspemu_direct_sharp_scale = 0;
+		return g_ksceIftuSetInputFrameBufferHook;
+	}
+
+	g_pspemu_direct_sharp_scale = enabled != 0;
+	__sync_synchronize();
+	return 0;
+}
+
+uint32_t adrStopBlanking(void) {
 	uint32_t state;
 	ENTER_SYSCALL(state);
 
@@ -210,9 +231,10 @@ uint32_t adrStopBlanking() {
 
 	if (blackline_uid >= 0) {
 		ksceKernelFreeMemBlock(blackline_uid);
+		blackline_uid = -1;
 	}
 
-	int vol = volume;
+	uint32_t vol = volume;
 	volume = 0;
 
 	EXIT_SYSCALL(state);
@@ -222,6 +244,10 @@ uint32_t adrStopBlanking() {
 void _start() __attribute__ ((weak, alias("module_start")));
 int module_start(SceSize args, void *argp) {
 	int res;
+
+	g_ksceIftuSetInputFrameBufferHook = taiHookFunctionImportForKernel(KERNEL_PID,
+		&ksceIftuSetInputFrameBufferRef, "SceDisplay", 0xCAFCFE50, 0x7CE0C4DA,
+		ksceIftuSetInputFrameBufferPatched);
 
 	// Tai module info
 	tai_module_info_t info;
@@ -278,6 +304,10 @@ int module_start(SceSize args, void *argp) {
 }
 
 int module_stop(SceSize args, void *argp) {
+	if (g_ksceIftuSetInputFrameBufferHook >= 0) {
+		taiHookReleaseForKernel(g_ksceIftuSetInputFrameBufferHook, ksceIftuSetInputFrameBufferRef);
+	}
+
 	taiHookReleaseForKernel(hooks[--n_hooks], ksceDisplaySetFrameBufInternalRef);
 	taiHookReleaseForKernel(hooks[--n_hooks], ksceKernelStartPreloadedModulesRef);
 	taiHookReleaseForKernel(hooks[--n_hooks], ksceSblAimgrIsDEXRef);

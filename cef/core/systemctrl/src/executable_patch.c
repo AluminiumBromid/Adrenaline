@@ -25,7 +25,7 @@
 #include <pspelf.h>
 #include <cfwmacros.h>
 #include <pspextratypes.h>
-#include <systemctrl_adrenaline.h>
+#include <systemctrl_epi.h>
 #include <adrenaline_log.h>
 
 #include "externs.h"
@@ -60,7 +60,8 @@ static void AdjustExecInfo(void *buf, SceLoadCoreExecFileInfo *execInfo) {
 	execInfo->is_kernel_mod = (execInfo->mod_info_attribute & 0x1000) ? 1 : 0;
 }
 
-__attribute__((noinline)) void AdjustExecInfoProbe(void *buf, SceLoadCoreExecFileInfo *execInfo) {
+__attribute__((noinline))
+static void AdjustExecInfoProbe(void *buf, SceLoadCoreExecFileInfo *execInfo) {
 	SceModuleInfo *modInfo = (SceModuleInfo *)((u32)buf + execInfo->module_info_offset);
 
 	if ((u32)modInfo >= 0x88400000 && (u32)modInfo <= 0x88800000) {
@@ -69,6 +70,20 @@ __attribute__((noinline)) void AdjustExecInfoProbe(void *buf, SceLoadCoreExecFil
 
 	execInfo->mod_info_attribute = modInfo->modattribute;
 	execInfo->is_kernel_mod = (execInfo->mod_info_attribute & 0x1000) ? 1 : 0;
+}
+
+static void HandleOnSystemBooted(void) {
+	static int g_idle = 0;
+
+	if (!g_idle) {
+		if (sctrlHENIsSystemBooted()) {
+			if (g_on_system_booted_handler != NULL) {
+				g_on_system_booted_handler();
+			}
+
+			g_idle = 1;
+		}
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -192,15 +207,16 @@ int PartitionCheckPatched(SceModuleMgrParam *mod_param, SceLoadCoreExecFileInfo 
 	// VSH doesn't like we doing this
 	int app_type = sceKernelApplicationType();
 	int not_vsh_pops = app_type != PSP_INIT_KEYCONFIG_VSH && app_type != PSP_INIT_KEYCONFIG_POPS;
-	if (!execInfo->is_kernel_mod && sctrlIsLoadingPlugins() && g_is_plugin_loading && not_vsh_pops) {
+	int load_in_extra = g_cfw_config.psp_game_plugin_ram == PLUGIN_RAM_TRY_EXTRA;
+	if (!execInfo->is_kernel_mod && load_in_extra && sctrlIsLoadingPlugins() && g_is_plugin_loading && not_vsh_pops) {
 		// Use p2 is ram2 size `> 24` (normal user mem) and ram11 `< 4` (arbitrary), or force high mem turned on
 
 		if (mod_param->mpid_data == PSP_MEMORY_PARTITION_UNKNOWN) {
-			mod_param->mpid_data = ((g_rebootex_config.ram2 > 24 && g_rebootex_config.ram11 < 4) || g_cfw_config.force_high_memory != HIGHMEM_OPT_OFF) ? 2 : 11;
+			mod_param->mpid_data = ((g_rebootex_config.ram2 > 24 && g_rebootex_config.ram11 < 4) || g_cfw_config.high_memory != HIGHMEM_OPT_DEFAULT) ? 2 : 11;
 		}
 
 		if (mod_param->mpid_text == PSP_MEMORY_PARTITION_UNKNOWN) {
-			mod_param->mpid_text = ((g_rebootex_config.ram2 > 24 && g_rebootex_config.ram11 < 4) || g_cfw_config.force_high_memory != HIGHMEM_OPT_OFF) ? 2 : 11;
+			mod_param->mpid_text = ((g_rebootex_config.ram2 > 24 && g_rebootex_config.ram11 < 4) || g_cfw_config.high_memory != HIGHMEM_OPT_DEFAULT) ? 2 : 11;
 		}
 	}
 
@@ -216,13 +232,20 @@ int PrologueModulePatched(SceModuleMgrParam *mod_param, SceModule *mod) {
 	if (res >= 0 && (mod->mod_state & SCE_MODULE_USER_MODULE) && mod_param->mpid_text == 11 && mod_param->mpid_data == 11 && sctrlIsLoadingPlugins() && not_vsh_pops) {
 		SceSize stack_size = (mod_param->stack_size == 0) ? DEFAULT_USER_STACK_SIZE_BYTES : mod_param->stack_size;
 		g_last_plugin_mem_size = mod->text_size + mod->data_size + stack_size;
-		g_plugins_loaded_mem += g_last_plugin_mem_size;
 	} else {
 		g_last_plugin_mem_size = 0;
 	}
 
-	if (res >= 0 && g_module_handler) {
-		g_module_handler(mod);
+	if (g_cfw_config.psp_game_plugin_ram == PLUGIN_RAM_ALWAYS_GAME) {
+		g_last_plugin_mem_size = 0;
+	}
+
+	if (res >= 0) {
+		if (g_module_handler != NULL) {
+			g_module_handler(mod);
+		}
+
+		HandleOnSystemBooted();
 	}
 
 	return res;

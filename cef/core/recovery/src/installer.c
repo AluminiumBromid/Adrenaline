@@ -34,7 +34,7 @@
 #include "menu.h"
 #include "utils.h"
 #include "files.h"
-#include <systemctrl_adrenaline.h>
+#include <systemctrl_epi.h>
 
 #define BIG_BUFFER_SIZE 8 * 1024 * 1024
 #define SMALL_BUFFER_SIZE 2 * 1024 * 1024
@@ -201,7 +201,7 @@ void Installer() {
 		VGraphGoto(2, 24);
 		// TODO:show error dialog
 		VGraphSetTextColor(0x4, 0x0);
-		VGraphPrintf("Cannot find ux0:app/" ADRENALINE_TITLEID "/661.PBP.");
+		VGraphPrintf("Cannot find ux0:data/" ADRENALINE_TITLEID "/661.PBP or ux0:app/" ADRENALINE_TITLEID "/661.PBP.");
 		goto EXIT;
 	}
 

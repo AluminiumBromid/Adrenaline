@@ -21,17 +21,13 @@
 #include <psp2/ctrl.h>
 #include <psp2/display.h>
 #include <psp2/system_param.h>
-#include <psp2/sysmodule.h>
 #include <psp2/power.h>
-#include <psp2/io/dirent.h>
-#include <psp2/io/fcntl.h>
 #include <psp2/io/stat.h>
 #include <psp2/kernel/dmac.h>
 #include <psp2/kernel/sysmem.h>
 #include <psp2/kernel/processmgr.h>
 
 #include <stdio.h>
-#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -50,7 +46,6 @@
 #include "includes/texture_v.h"
 #include "includes/texture_f.h"
 #include "includes/opaque_v.h"
-#include "includes/bicubic_f.h"
 #include "includes/sharp_bilinear_f.h"
 #include "includes/sharp_bilinear_v.h"
 #include "includes/sharp_bilinear_simple_f.h"
@@ -65,8 +60,6 @@
 #include "includes/scale3x_f.h"
 #include "includes/vflux_f.h"
 #include "includes/vflux_v.h"
-#include "includes/texture_v.h"
-#include "includes/texture_f.h"
 
 static const SceGxmProgram *const gxm_program_vflux_v = (SceGxmProgram*)&vflux_v;
 static const SceGxmProgram *const gxm_program_vflux_f = (SceGxmProgram*)&vflux_f;
@@ -78,6 +71,8 @@ vita2d_pgf *font;
 vita2d_texture* overlay_texture = NULL;
 
 int language = 0, enter_button = 0, date_format = 0, time_format = 0;
+
+int g_direct_sharp_scale_active = 0;
 
 static int EnterStandbyMode();
 static int OpenOfficialSettings();
@@ -97,18 +92,19 @@ static char *no_yes_options[] = { "No", "Yes" };
 static char *yes_no_options[] = { "Yes", "No" };
 static char *ms_location_options[] = { "ux0:pspemu", "ur0:pspemu", "imc0:pspemu", "xmc0:pspemu", "uma0:pspemu", "uma0:" };
 static char *usbdevice_options[] = { "Memory Card", "Internal Storage", "sd2vita", "psvsd" };
-static char *cfwtype_options[] = { "EPI", "ARK" };
+static char *cfwtype_options[] = { "Epinephrine (EPI)", "ARK" };
 static char *ef_location_options[] = { "Disabled", "uma0:pspemu", "xmc0:pspemu", "ux0:pspemu", "uma0:" };
 
 static MenuEntry main_entries[] = {
-	{ "Enter Standby Mode",        MENU_ENTRY_TYPE_CALLBACK, 0, EnterStandbyMode, NULL, NULL, 0 },
-	{ "Open Official Settings",    MENU_ENTRY_TYPE_CALLBACK, 0, OpenOfficialSettings, NULL, NULL, 0 },
-	{ "Exit PspEmu Application",   MENU_ENTRY_TYPE_CALLBACK, 0, ExitPspEmuApplication, NULL, NULL, 0 },
-	{ "Exit Adrenaline Menu",      MENU_ENTRY_TYPE_CALLBACK, 0, ExitAdrenalineMenu, NULL, NULL, 0 },
+	{ "Enter Standby Mode",        MENU_ENTRY_TYPE_CALLBACK, WHITE, EnterStandbyMode, NULL, NULL, 0 },
+	{ "Open Official Settings",    MENU_ENTRY_TYPE_CALLBACK, WHITE, OpenOfficialSettings, NULL, NULL, 0 },
+	{ "Exit PspEmu Application",   MENU_ENTRY_TYPE_CALLBACK, WHITE, ExitPspEmuApplication, NULL, NULL, 0 },
+	{ "Exit Adrenaline Menu",      MENU_ENTRY_TYPE_CALLBACK, WHITE, ExitAdrenalineMenu, NULL, NULL, 0 },
 };
 
 static MenuEntry settings_entries[] = {
 	{ "vPSP Custom Firmware",      MENU_ENTRY_TYPE_OPTION, 0, NULL, &config.cfw_type, cfwtype_options, sizeof(cfwtype_options)/sizeof(char*) },
+	{ "", MENU_ENTRY_TYPE_TEXT, WHITE, NULL, NULL, NULL, 0 },
 	{ "Graphics Filtering",        MENU_ENTRY_TYPE_OPTION, 0, NULL, &config.graphics_filtering, graphics_options, sizeof(graphics_options) / sizeof(char **) },
 	{ "Smooth Graphics",           MENU_ENTRY_TYPE_OPTION, 0, NULL, &config.no_smooth_graphics, yes_no_options, sizeof(yes_no_options) / sizeof(char **) },
 	{ "f.lux Filter Color",        MENU_ENTRY_TYPE_OPTION, 0, NULL, &config.flux_mode, flux_mode_options, sizeof(flux_mode_options) / sizeof(char **) },
@@ -116,11 +112,12 @@ static MenuEntry settings_entries[] = {
 	{ "Screen Scale Y (PSP)",      MENU_ENTRY_TYPE_SCALE,  0, NULL, (uint8_t *)&config.psp_screen_scale_y, NULL, 0 },
 	{ "Screen Scale X (PS1)",      MENU_ENTRY_TYPE_SCALE,  0, NULL, (uint8_t *)&config.ps1_screen_scale_x, NULL, 0 },
 	{ "Screen Scale Y (PS1)",      MENU_ENTRY_TYPE_SCALE,  0, NULL, (uint8_t *)&config.ps1_screen_scale_y, NULL, 0 },
+	{ "", MENU_ENTRY_TYPE_TEXT, WHITE, NULL, NULL, NULL, 0 },
 	{ "Memory Stick Location",     MENU_ENTRY_TYPE_OPTION, 0, NULL, &config.ms_location, ms_location_options, sizeof(ms_location_options) / sizeof(char **) },
 	{ "System Storage Location",   MENU_ENTRY_TYPE_OPTION, 0, NULL, &config.ef_location, ef_location_options, sizeof(ef_location_options) / sizeof(char **) },
 	{ "USB device",                MENU_ENTRY_TYPE_OPTION, 0, NULL, &config.usbdevice, usbdevice_options, sizeof(usbdevice_options) / sizeof(char **) },
 	{ "Skip Adrenaline Boot Logo", MENU_ENTRY_TYPE_OPTION, 0, NULL, &config.skip_logo, no_yes_options, sizeof(no_yes_options) / sizeof(char **) },
-	{ "Reset Adrenaline Settings", MENU_ENTRY_TYPE_CALLBACK, 0, ResetAdrenalineSettings, NULL, NULL, 0 },
+	{ "Reset Adrenaline Settings", MENU_ENTRY_TYPE_CALLBACK, YELLOW, ResetAdrenalineSettings, NULL, NULL, 0 },
 };
 
 static MenuEntry about_entries[] = {
@@ -172,10 +169,15 @@ static int EnterStandbyMode() {
 	return 0;
 }
 
-static int SaveAdrSetting() {
+static void SaveAdrSetting() {
 	config.magic[0] = ADRENALINE_CFG_MAGIC_1;
 	config.magic[1] = ADRENALINE_CFG_MAGIC_2;
-	WriteFile("ux0:app/" ADRENALINE_TITLEID "/adrenaline.bin", &config, sizeof(AdrenalineConfig));
+	WriteFile("ux0:data/" ADRENALINE_TITLEID "/adrenaline.bin", &config, sizeof(AdrenalineConfig));
+
+	SceIoStat stat;
+	if (sceIoGetstat("ux0:app/" ADRENALINE_TITLEID "/adrenaline.bin", &stat) >= 0) {
+		WriteFile("ux0:app/" ADRENALINE_TITLEID "/adrenaline.bin", &config, sizeof(AdrenalineConfig));
+	}
 }
 
 static int OpenOfficialSettings() {
@@ -210,8 +212,8 @@ static int EnterAdrenalineMenu() {
 
 	// Check if ARK is installed
 	SceIoStat stat;
-	char ark_path[47];
-	snprintf(ark_path, 47, "%s" FLASH0_ARK_PATH, getPspemuMemoryStickLocation());
+	char ark_path[64];
+	snprintf(ark_path, sizeof(ark_path), "%s" FLASH0_ARK_PATH, getPspemuMemoryStickLocation());
 	if (sceIoGetstat(ark_path, &stat) < 0 && sceIoGetstat("ux0:pspemu" FLASH0_ARK_PATH, &stat) < 0){
 		settings_entries[0].n_options = 1;
 		config.cfw_type = 0;
@@ -222,7 +224,7 @@ static int EnterAdrenalineMenu() {
 	return 0;
 }
 
-int ExitAdrenalineMenu() {
+int ExitAdrenalineMenu(void) {
 	if (changed) {
 		SaveAdrSetting();
 	}
@@ -255,7 +257,7 @@ int ExitAdrenalineMenu() {
 	return 0;
 }
 
-int ResetAdrenalineSettings() {
+static int ResetAdrenalineSettings(void) {
 	memset(&config, 0, sizeof(AdrenalineConfig));
 	config.magic[0] = ADRENALINE_CFG_MAGIC_1;
 	config.magic[1] = ADRENALINE_CFG_MAGIC_2;
@@ -263,12 +265,17 @@ int ResetAdrenalineSettings() {
 	config.psp_screen_scale_y = 2.0f;
 	config.ps1_screen_scale_x = 1.0f;
 	config.ps1_screen_scale_y = 1.0f;
-	WriteFile("ux0:app/" ADRENALINE_TITLEID "/adrenaline.bin", &config, sizeof(AdrenalineConfig));
+	WriteFile("ux0:data/" ADRENALINE_TITLEID "/adrenaline.bin", &config, sizeof(AdrenalineConfig));
+
+	SceIoStat stat;
+	if (sceIoGetstat("ux0:app/" ADRENALINE_TITLEID "/adrenaline.bin", &stat) >= 0) {
+		WriteFile("ux0:app/" ADRENALINE_TITLEID "/adrenaline.bin", &config, sizeof(AdrenalineConfig));
+	}
 
 	return 0;
 }
 
-void drawMenu() {
+static void drawMenu(void) {
 	// Draw window
 	vita2d_draw_rectangle(WINDOW_X, WINDOW_Y, WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_COLOR);
 
@@ -283,21 +290,21 @@ void drawMenu() {
 
 		char info[143] = {0};
 		if (strcmp(adrenaline->title, "XMB\xE2\x84\xA2") == 0) {
-			snprintf(info, 128, "XMB");
+			snprintf(info, sizeof(info), "XMB");
 		} else {
 			int res = 0;
 
 			if (adrenaline->title[0] != 0) {
-				res = snprintf(info, 128, "%s - ", adrenaline->title);
+				res = snprintf(info, sizeof(info), "%s - ", adrenaline->title);
 			}
 
-			if (adrenaline->titleid[0] != 0) {
-				snprintf(info+res, 13, "%s", adrenaline->titleid);
+			if (adrenaline->titleid[0] != 0 && res < (int)sizeof(info)) {
+				snprintf(info+res, sizeof(info) - res, "%s", adrenaline->titleid);
 			}
 		}
 
 		vita2d_draw_rectangle(WINDOW_X, FONT_Y_LINE(1) + 9.0f, WINDOW_WIDTH, 28.0f, COLOR_ALPHA(0xFFFF1F7F, 0x7F));
-		pgf_draw_textf(WINDOW_X + ALIGN_CENTER(WINDOW_WIDTH, vita2d_pgf_text_width(font, FONT_SIZE, info)), FONT_Y_LINE(1) + 10.0f, WHITE, FONT_SIZE, info);
+		pgf_draw_text(WINDOW_X + ALIGN_CENTER(WINDOW_WIDTH, vita2d_pgf_text_width(font, FONT_SIZE, info)), FONT_Y_LINE(1) + 10.0f, WHITE, FONT_SIZE, info);
 	}
 
 	// Draw tabs
@@ -320,7 +327,7 @@ void drawMenu() {
 			float y = (tab_sel == 0) ? FONT_Y_LINE(3 + i) : FONT_Y_LINE(2 + i);
 
 			uint32_t color = WHITE;
-			if (menu_entries[i].type == MENU_ENTRY_TYPE_TEXT) {
+			if (menu_entries[i].type == MENU_ENTRY_TYPE_TEXT || menu_entries[i].type == MENU_ENTRY_TYPE_CALLBACK) {
 				color = menu_entries[i].color;
 			}
 
@@ -352,19 +359,23 @@ void drawMenu() {
 		// Info about PSP CFW change
 		if (tab_sel == 2 && menu_sel == 0) {
 			char *title = "Changing Custom Firmware requires to close and reopen Adrenaline to take effect.";
-			pgf_draw_textf(WINDOW_X + ALIGN_CENTER(WINDOW_WIDTH, vita2d_pgf_text_width(font, FONT_SIZE, title)), FONT_Y_LINE(17), WHITE, FONT_SIZE, title);
+			pgf_draw_text(WINDOW_X + ALIGN_CENTER(WINDOW_WIDTH, vita2d_pgf_text_width(font, FONT_SIZE, title)), FONT_Y_LINE(17)+10, ORANGE, FONT_SIZE, title);
 		}
 		// Info about Original filter
-		if (tab_sel == 2 && menu_sel == 1 && config.graphics_filtering == 0) {
+		if (tab_sel == 2 && menu_sel == 2 && config.graphics_filtering == 0) {
 			char *title = "All graphics related options are not taking effect with the Original rendering mode.";
-			pgf_draw_textf(WINDOW_X + ALIGN_CENTER(WINDOW_WIDTH, vita2d_pgf_text_width(font, FONT_SIZE, title)), FONT_Y_LINE(17), WHITE, FONT_SIZE, title);
+			pgf_draw_text(WINDOW_X + ALIGN_CENTER(WINDOW_WIDTH, vita2d_pgf_text_width(font, FONT_SIZE, title)), FONT_Y_LINE(17)+10, ORANGE, FONT_SIZE, title);
+		}
+		if (tab_sel == 2 && menu_sel == 2 && config.graphics_filtering == 5) {
+			char *title = (g_direct_sharp_scale_active) ? "Using IFTU Sharp Bilinear" : "Using vita2d Sharp Bilinear";
+			pgf_draw_text(WINDOW_X + ALIGN_CENTER(WINDOW_WIDTH, vita2d_pgf_text_width(font, FONT_SIZE, title)), FONT_Y_LINE(17)+10, ORANGE, FONT_SIZE, title);
 		}
 	} else {
 		drawStates();
 	}
 }
 
-void ctrlMenu() {
+static void ctrlMenu(void) {
 	if (released_pad[PAD_PSBUTTON]) {
 		ExitAdrenalineMenu();
 	}
@@ -461,28 +472,24 @@ void ctrlMenu() {
 			}
 
 			if ((hold_pad[PAD_UP] || hold_pad[PAD_LEFT_ANALOG_UP]) && !g_hide_menu) {
-				if (menu_sel > 0) {
-					menu_sel--;
+				menu_sel = (tab_entries[tab_sel].n_entries + menu_sel - 1) % tab_entries[tab_sel].n_entries;
+
+				// Skip empty lines
+				if (strcmp(tab_entries[tab_sel].entries[menu_sel].name, "") == 0) {
+					menu_sel = (tab_entries[tab_sel].n_entries + menu_sel - 1) % tab_entries[tab_sel].n_entries;
 				}
 			}
 
 			if ((hold_pad[PAD_DOWN] || hold_pad[PAD_LEFT_ANALOG_DOWN]) && !g_hide_menu) {
-				if (menu_sel < tab_entries[tab_sel].n_entries-1) {
-					menu_sel++;
+				menu_sel = (tab_entries[tab_sel].n_entries + menu_sel + 1) % tab_entries[tab_sel].n_entries;
+
+				// Skip empty lines
+				if (strcmp(tab_entries[tab_sel].entries[menu_sel].name, "") == 0) {
+					menu_sel = (tab_entries[tab_sel].n_entries + menu_sel + 1) % tab_entries[tab_sel].n_entries;
 				}
 			}
 		}
 	}
-}
-
-void getPspScreenScale(float *scale_x, float *scale_y) {
-	*scale_x = config.psp_screen_scale_x;
-	*scale_y = config.psp_screen_scale_y;
-}
-
-void getPopsScreenScale(float *scale_x, float *scale_y) {
-	*scale_x = config.ps1_screen_scale_x;
-	*scale_y = config.ps1_screen_scale_y;
 }
 
 void *pops_data = NULL;
@@ -514,6 +521,9 @@ int AdrenalineDraw(SceSize args, void *argp) {
 	}
 
 	pops_data = vita2d_texture_get_datap(pops_tex);
+	if (pops_data) {
+		memset(pops_data, 0, SCREEN_LINE * SCREEN_HEIGHT * sizeof(uint32_t));
+	}
 
 	vita2d_shader *opaque_shader = vita2d_create_shader((SceGxmProgram *)opaque_v, (SceGxmProgram *)texture_f);
 	vita2d_shader *sharp_shader = vita2d_create_shader((SceGxmProgram *)sharp_bilinear_v, (SceGxmProgram *)sharp_bilinear_f);
@@ -580,9 +590,25 @@ int AdrenalineDraw(SceSize args, void *argp) {
 	// keep track of entering pops mode
 	int lastPops = 0;
 
+	int direct_sharp_scale_requested = -1;
+	int is_vita_tv = sceKernelIsPSVitaTV();
+
 	while (1) {
 		int draw_native = *(uint32_t *)CONVERT_ADDRESS(DRAW_NATIVE);
 		SceAdrenaline *adrenaline = (SceAdrenaline *)CONVERT_ADDRESS(ADRENALINE_ADDRESS);
+
+		int request_direct_sharp_scale =
+			!is_vita_tv && !adrenaline->pops_mode && !draw_native
+			&& config.graphics_filtering == 5 && config.no_smooth_graphics != 0
+			&& config.flux_mode == FLUX_MODE_OFF
+			&& config.psp_screen_scale_x == 2.0f
+			&& config.psp_screen_scale_y == 2.0f;
+
+		if (request_direct_sharp_scale != direct_sharp_scale_requested) {
+			int res = adrSetPspemuDirectSharpScale(request_direct_sharp_scale);
+			direct_sharp_scale_requested = request_direct_sharp_scale;
+			g_direct_sharp_scale_active = request_direct_sharp_scale && res >= 0;
+		}
 
 		// pause/unpause pops once after switching from psp to pops mode
 		// this pause/unpause fixes slowdown in PS1 games that used to require manually entering/exiting menu
@@ -591,6 +617,9 @@ int AdrenalineDraw(SceSize args, void *argp) {
 		}
 
 		if (adrenaline->pops_mode && lastPops == 0) {
+			if (pops_data) {
+				memset(pops_data, 0, SCREEN_LINE * SCREEN_HEIGHT * sizeof(uint32_t));
+			}
 			ScePspemuPausePops(1);
 			sceDisplayWaitVblankStart();
 			ScePspemuPausePops(0);
@@ -654,10 +683,15 @@ int AdrenalineDraw(SceSize args, void *argp) {
 		}
 
 		// Do not draw if dialog is running
-		if (sceCommonDialogIsRunning() || (config.graphics_filtering == 0 && menu_open == 0 && draw_native == 0)) {
+		if (sceCommonDialogIsRunning() || ((config.graphics_filtering == FILTER_ORIGINAL || g_direct_sharp_scale_active) &&
+			menu_open == 0 && draw_native == 0)) {
 			sceDisplayWaitVblankStart();
 
 			continue;
+		}
+
+		if (request_direct_sharp_scale && !g_direct_sharp_scale_active) {
+			sceGxmDisplayQueueFinish();
 		}
 
 		// Draw display
@@ -674,7 +708,11 @@ int AdrenalineDraw(SceSize args, void *argp) {
 		} else if (config.graphics_filtering == 4) {
 			shader = lcd3x_shader;
 		} else if (config.graphics_filtering == 5) {
-			shader = sharp_simple_shader;
+			if (g_direct_sharp_scale_active) {
+				shader = opaque_shader;
+			} else {
+				shader = sharp_simple_shader;
+			}
 		} else if (config.graphics_filtering == 6) {
 			shader = scale2x_shader;
 		} else if (config.graphics_filtering == 7) {
@@ -694,6 +732,9 @@ int AdrenalineDraw(SceSize args, void *argp) {
 		if (config.no_smooth_graphics == 0) {
 			vita2d_texture_set_filters(psp_tex, SCE_GXM_TEXTURE_FILTER_LINEAR, SCE_GXM_TEXTURE_FILTER_LINEAR);
 			vita2d_texture_set_filters(pops_tex, SCE_GXM_TEXTURE_FILTER_LINEAR, SCE_GXM_TEXTURE_FILTER_LINEAR);
+		} else if (config.no_smooth_graphics != 0 && config.graphics_filtering == 1) {
+			vita2d_texture_set_filters(psp_tex, SCE_GXM_TEXTURE_FILTER_LINEAR, SCE_GXM_TEXTURE_FILTER_LINEAR);
+			vita2d_texture_set_filters(pops_tex, SCE_GXM_TEXTURE_FILTER_LINEAR, SCE_GXM_TEXTURE_FILTER_LINEAR);
 		} else {
 			vita2d_texture_set_filters(psp_tex, SCE_GXM_TEXTURE_FILTER_POINT, SCE_GXM_TEXTURE_FILTER_POINT);
 			vita2d_texture_set_filters(pops_tex, SCE_GXM_TEXTURE_FILTER_POINT, SCE_GXM_TEXTURE_FILTER_POINT);
@@ -704,18 +745,12 @@ int AdrenalineDraw(SceSize args, void *argp) {
 			sceDmacMemcpy(psp_data, (void *)SCE_PSPEMU_FRAMEBUFFER, SCE_PSPEMU_FRAMEBUFFER_SIZE);
 
 			// Draw psp screen
-			float scale_x = 2.00f;
-			float scale_y = 2.00f;
-			getPspScreenScale(&scale_x, &scale_y);
-			vita2d_draw_texture_scale_rotate_hotspot(psp_tex, 480.0f, 272.0f, scale_x, scale_y, 0.0, 240.0, 136.0);
+			vita2d_draw_texture_scale_rotate_hotspot(psp_tex, 480.0f, 272.0f, config.psp_screen_scale_x, config.psp_screen_scale_y, 0.0, 240.0, 136.0);
 		} else if (draw_native) {
 			vita2d_draw_texture_scale_rotate_hotspot(native_tex, 480.0f, 272.0f, 1.0f, 1.0f, 0.0, 480.0, 272.0);
 		} else {
 			// Draw pops screen
-			float scale_x = 1.0f;
-			float scale_y = 1.0f;
-			getPopsScreenScale(&scale_x, &scale_y);
-			vita2d_draw_texture_scale_rotate_hotspot(pops_tex, 480.0f, 272.0f, scale_x, scale_y, 0.0, 480.0, 272.0);
+			vita2d_draw_texture_scale_rotate_hotspot(pops_tex, 480.0f, 272.0f, config.ps1_screen_scale_x, config.ps1_screen_scale_y, 0.0, 480.0, 272.0);
 			if (overlay_texture) {
 				vita2d_texture_set_program(overlay_shader->vertexProgram, overlay_shader->fragmentProgram);
 				vita2d_texture_set_wvp(overlay_shader->wvpParam);
@@ -723,13 +758,18 @@ int AdrenalineDraw(SceSize args, void *argp) {
 				vita2d_texture_set_fragmentInput(&overlay_shader->fragmentInput);
 
 				vita2d_texture_set_filters(overlay_texture, SCE_GXM_TEXTURE_FILTER_LINEAR, SCE_GXM_TEXTURE_FILTER_LINEAR);
-				vita2d_draw_texture_scale_rotate_hotspot(overlay_texture, 480.0f, 272.0f, scale_x, scale_y, 0.0, 480.0, 272.0);
+				vita2d_draw_texture_scale_rotate_hotspot(overlay_texture, 480.0f, 272.0f, config.ps1_screen_scale_x, config.ps1_screen_scale_y, 0.0, 480.0, 272.0);
 			}
 		}
 
 
 		// Draw Menu
 		if (menu_open && !g_hide_menu) {
+			vita2d_texture_set_program(overlay_shader->vertexProgram, overlay_shader->fragmentProgram);
+			vita2d_texture_set_wvp(overlay_shader->wvpParam);
+			vita2d_texture_set_vertexInput(&overlay_shader->vertexInput);
+			vita2d_texture_set_fragmentInput(&overlay_shader->fragmentInput);
+
 			drawMenu();
 		}
 

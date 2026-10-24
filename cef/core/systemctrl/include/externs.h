@@ -24,13 +24,14 @@
 #include <systemctrl.h>
 #include <systemctrl_se.h>
 #include <rebootexconfig.h>
-#include <systemctrl_adrenaline.h>
+#include <systemctrl_epi.h>
 
 #include "utils.h"
 
 extern RebootexConfigEPI g_rebootex_config;
 extern SEConfigEPI g_cfw_config;
 extern STMOD_HANDLER g_module_handler;
+extern SYSBOOT_HANDLER g_on_system_booted_handler;
 extern SceAdrenaline *g_adrenaline;
 extern u8 g_is_plugin_loading;
 

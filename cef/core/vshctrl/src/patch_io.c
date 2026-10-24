@@ -74,7 +74,7 @@ static int CorruptIconPatch(char *name) {
 
 	for (int i = 0; i < NELEMS(g_game_dir_list); i++) {
 		char path[256];
-		sprintf(path, "%s/%s%%/EBOOT.PBP", g_game_dir_list[i], name);
+		snprintf(path, 256, "%s/%s%%/EBOOT.PBP", g_game_dir_list[i], name);
 		logmsg4("[DEBUG]: %s: path=%s\n", __func__, path);
 
 		SceIoStat stat;
@@ -123,7 +123,7 @@ static int HideDlc(char *name) {
 
 static void ApplyIsoNamePatch(SceIoDirent *dir) {
 	if (dir->d_name[0] != '.') {
-		memset(dir->d_name, 0, 256);
+		memset(dir->d_name, 0, sizeof(dir->d_name));
 		sprintf(dir->d_name, ISO_FOLDER_PREFIX"%d", g_isoindex++);
 	}
 }
@@ -240,9 +240,9 @@ static int Cache(VirtualPbp *pbp) {
 static int AddIsoDirent(char *path, SceUID fd, SceIoDirent *dir, int readcategories) {
 	int res;
 
-	logmsg3("[DEBUG]: %s: path=%s, dir.d_name=%s, readcategories=%d\n", __func__, path, dir->d_name, readcategories);
 
 NEXT:
+	logmsg3("[DEBUG]: %s: path=%s, dir.d_name=%s, readcategories=%d\n", __func__, path, dir->d_name, readcategories);
 	if ((res = sceIoDread(fd, dir)) > 0) {
 		static VirtualPbp vpbp;
 		static char fullpath[256];
@@ -309,7 +309,7 @@ int GetIsoIndex(const char *file) {
 	}
 
 	char number[5];
-	memset(number, 0, 5);
+	memset(number, 0, sizeof(number));
 	strncpy(number, p + 9, q - (p + 9));
 
 	return strtol(number, NULL, 10);
@@ -318,7 +318,7 @@ int GetIsoIndex(const char *file) {
 char *GetPathDrive(const char *path) {
 	static char buf[10] = {0};
 
-	memset(buf, 0, 10);
+	memset(buf, 0, sizeof(buf));
 	for (int i = 0; i < 10; i++) {
 		if (path[i] == '.' || path[i] == '\0') {
 			break;
@@ -419,7 +419,7 @@ int sceIoDreadPatched(SceUID fd, SceIoDirent *dir) {
 			}
 
 			if (g_isodfd >= 0) {
-				res = AddIsoDirent(iso_dir, g_isodfd, dir, 1);
+				res = AddIsoDirent(iso_dir, g_isodfd, dir, g_has_categories_lite);
 				if (res > 0) {
 					goto exit;
 				}

@@ -1,6 +1,46 @@
 # Changelog
 ---
 
+## Unreleased
+
+### Adrenaline
+- Add support to use files on `ux0:data/PSPEMUCFW/` instead of `ux0:app/PSPEMUCFW/`
+  - That means if PSP Firmware files are on `ux0:data/PSPEMUCFW/`, it is possible to update Adrenaline by VPK installation without losing the PSP firmware installation.
+- Add PSPemu font files to the ramfs flash0 image if possible
+- Reduce memory usage
+- Use IFTU based Sharp Bilinear without Scanlines when conditions are right
+- Fix savestate thumbnail on some graphical filters showing as one color plain image
+- Fix UTF-8 rendering on Adrenaline Menu
+- Fix a memory leak on error code path
+- Fix ghost frame on PS1 titles when Graphical Filters enabled
+- Fix bilinear filter not being applied when `Smooth Graphics` is off.
+
+### Epinephrine CFW
+
+- Introduce Janus: A ISO file switcher
+  - Change disc from multi-disc titles (e.g. `Final Fantasy Type-0`)
+  - Change disc for older title bonus content (e.g. `Yu-Gi-Oh! GX: Tag Force` series)
+- Add option to select PSP game plugin loading behavior **\[[docs](./08-CfwConfiguration.md#psp-gameapp-plugin-ram-partition)\]**
+- Add option to forcibly disable high memory layout **\[[docs](./08-CfwConfiguration.md#high-memory-layout)\]**
+- Fix branch logic for plugins patch
+- Fix formatting issues on recovery
+- Fix wrong logic on VSH isofs driver
+- Fix UB on virtualPBP initialization
+- Fix overflow on custom POPS `CONFIG.BIN` injection
+- Fix per-fd UMDemu seek/read delays not happening when reading virtual disc through `devctl`
+- Fix slowness on read/seek system fonts by caching system fonts when used
+  - Besides `Dissidia 012`, it potentially fix stuttering on other games that relies heavily on the system fonts
+- Refactor SystemControl and Pentazemin modules to use `sctrlHENSetSystemBootedHandler`
+- Improve overall stability and performance
+- **Game Compatibility:**
+  - Fix `Dissidia 012` stuttering on text-heavy menus by caching system fonts.
+
+- **DEV:** Introduce `sctrlHENSetSystemBootedHandler`
+	- It allows to set a handler that is called only once when the system just finished the boot sequence.
+- **DEV:** Expand `isoCtrl_driver` API with `isoGetUmdFile`, `isoReopenUmdFile`, `isoSwapUmdFile`.
+- **DEV:** Introduce `NoDrmHelper` CFW library
+    - Although used internally for Epinephrine NoDRM engine, this could also be used to help implement plugins that closes eventual gaps in the NoDRM engine or even a external full implementation of a NoDRM engine.
+
 ## v8.0.2
 
 ### Adrenaline
@@ -12,7 +52,7 @@
 - Fix plugins failing to load on POPS (PS1 titles)
 - Fix crash in opening context menu when `XMB CFW Settings` is disabled
 - Fix Uncategorized category on Categories Lite showing corrupt icons
-- Refactor: Don't try to load userlevel plugins on extra RAM
+- Refactor: Don't try to load userlevel plugins on extra RAM on POPS
 - Refactor: Make fake `TotalFreeMem` more precise
 - **DEV:** Fix `guglue` library not exported with weak reference support
 
@@ -37,8 +77,6 @@
 - Add `Scale3x` graphical filter options **\[[docs](./03-AdrenalineMenu/02-AdrenalineSettings.md#graphics-filtering)\]**
 - Add image overlay filter for PS1 game/apps **\[[docs](./06-PS1Playback.md#overlay-image)\]**
 - Add an option to select a System Storage location to expose `ef0:` to the chosen CFW.
-- Implement a GPU-rendered VSH Menu
-  - The classical version is still available through configuration
 - "Fix" manual double launch on first install
 - Improve frame pacing on Original graphics filtering
 - Implement hold `Square` to hide Adrenaline Menu on graphics-related settings
@@ -58,6 +96,8 @@
 - Introduce an improved implementation of the GalaxyController **\[[docs](./05-PSPPlayback/05-Galaxy.md)\]**
 - Add support for launching `JSO`, `ZSO`, `CSOv2`, and `DAX` compressed ISO formats using any ISO driver. **\[[docs](./05-PSPPlayback.md#umdemu-iso-drivers)\]**
 - Add support for per-file descriptor UMD seek/read speed emulation to ISO drivers.
+- Implement a GPU-rendered VSH Menu
+  - The classical version is still available through configuration
 - Add CFW file hider in games.
 - Introduce CFW Settings on the XMB **\[[docs](./10-XmbCfwMenus.md#-adrenaline-cfw-settings)\]**
 - Introduce Plugin Manager on the XMB **\[[docs](./10-XmbCfwMenus.md#-plugins-manager)\]**

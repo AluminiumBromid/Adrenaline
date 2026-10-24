@@ -3,7 +3,7 @@
 
 The Adrenaline Project turns the PS Vita's PSP emulator into a highly-featured virtual PSP running a Custom 6.61 PSP Firmware, with extra Vita-side integrations.
 
-The Adrenaline Peoject is two software projects in one: **Adrenaline Application** (1) and **Epinephrine CFW** (2).
+The Adrenaline Project is two software projects in one: **Adrenaline Application** (1) and **Epinephrine CFW** (2).
 
 1. **Adrenaline** is a software that modifies the official PSP Emulator (PSPemu/ePSP) using [taiHEN CFW framework](https://github.com/yifanlu/taiHEN) to make it possible to run a Custom PSP 6.61 Firmware (CFW). It is also the software that handles the Vita-side integrations with the PSP firmware and hardware.
 2. **Epinephrine** is a Custom Firmware for the Vita's PSPemu derived from TN-V CFW that, besides usual PSP CFW features, it helps to get access to PSP XMB and most of the PSP native environment in the PSPemu.
@@ -68,6 +68,7 @@ The Adrenaline Peoject is two software projects in one: **Adrenaline Application
 | L+R+Down+Start    | Fast exit to XMB/VSH                  | Anytime on XMB or PSP title                                 |
 | L2+R2+Down+Select | Fast exit to XMB/VSH                  | Anytime on PS1 title on Vita                                |
 | L2+R2+Down+Start  | Fast exit to XMB/VSH                  | Anytime on PS1 title on Vita                                |
+| L+R+Up+Start      | Open Janus ISO Switcher Menu          | During PSP ISO title and games                              |
 | Select            | Open VSH Menu                         | XMB/VSH                                                     |
 | Hold L            | Plugins disabled                      | On PSP/PS1 title Reset/Power-on/launch                      |
 | Hold R            | Execute BOOT.BIN in UMDemu ISO        | On PSP ISO title and games launch                           |
