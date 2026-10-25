@@ -123,14 +123,14 @@ jobs:
         run: |
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNIGHTLY=1
           cmake --build build
-          mv build/bubble/Adrenaline.vpk build/bubble/Adrenaline-nightly.vpk
+          mv build/bubble/AdrenalineUnofficial.vpk build/bubble/AdrenalineUnofficial-nightly.vpk
 
       - name: Upload VPK
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         uses: actions/upload-artifact@v7
         with:
           name: epi-vpk
-          path: build/bubble/Adrenaline-nightly.vpk
+          path: build/bubble/AdrenalineUnofficial-nightly.vpk
           compression-level: 0
 
       - name: Build UPDATER
@@ -188,13 +188,13 @@ jobs:
         run: |
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNIGHTLY=1
           cmake --build build -j
-          mv build/bubble/Adrenaline.vpk build/bubble/Adrenaline-nightly-DEBUG.vpk
+          mv build/bubble/AdrenalineUnofficial.vpk build/bubble/AdrenalineUnofficial-nightly-DEBUG.vpk
 
       - name: Upload VPK
         uses: actions/upload-artifact@v7
         with:
           name: epi-vpk-debug
-          path: build/bubble/Adrenaline-nightly-DEBUG.vpk
+          path: build/bubble/AdrenalineUnofficial-nightly-DEBUG.vpk
           compression-level: 0
 
   release-nightly:
@@ -233,6 +233,6 @@ jobs:
           body: "${{ steps.vars.outputs.git_log }}"
           prerelease: true
           files: |
-              build/epi-vpk/Adrenaline-nightly.vpk
-              build/epi-vpk-debug/Adrenaline-nightly-DEBUG.vpk
+              build/epi-vpk/AdrenalineUnofficial-nightly.vpk
+              build/epi-vpk-debug/AdrenalineUnofficial-nightly-DEBUG.vpk
               build/epi-updater/updater-nightly.zip

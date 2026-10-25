@@ -679,7 +679,7 @@ int module_start(SceSize args, void *argp) {
 			"<frame id=\"frame2\">"
 					"<liveitem>"
 							"<text valign=\"bottom\" align=\"left\" text-align=\"left\" text-valign=\"bottom\" line-space=\"3\" ellipsis=\"on\">"
-									"<str color=\"#ffffff\" size=\"50\" bold=\"on\" shadow=\"on\">Adrenaline %d.%d.%d</str>"
+									"<str color=\"#ffffff\" size=\"40\" bold=\"on\" shadow=\"on\">" ADRENALINE_NAME " %d.%d.%d</str>"
 							"</text>"
 					"</liveitem>"
 			"</frame>",
@@ -696,7 +696,7 @@ int module_start(SceSize args, void *argp) {
 			"<frame id=\"frame3\">"
 				"<liveitem>"
 					"<text valign=\"top\" align=\"left\" text-align=\"left\" text-valign=\"top\" line-space=\"2\" ellipsis=\"on\">"
-						"<str size=\"22\" shadow=\"on\">by Cat and GrayJack</str>"
+						"<str size=\"22\" shadow=\"on\">by Cat and GrayJack, unofficial build by AluminiumBromid</str>"
 					"</text>"
 				"</liveitem>"
 			"</frame>"
