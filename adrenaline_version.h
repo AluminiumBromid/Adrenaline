@@ -22,6 +22,11 @@
 #define ADRENALINE_VERSION_MAJOR    8
 #define ADRENALINE_VERSION_MINOR    0
 #define ADRENALINE_VERSION_MICRO    2
+// Unofficial fork (AluminiumBromid/Adrenaline, based on isage/Adrenaline): the name shown on the
+// LiveArea, in the Adrenaline menu, the updater and the PSP XMB. The bubble's title and title ID stay
+// "Adrenaline" / PSPEMUCFW.
+#define ADRENALINE_NAME "Adrenaline Unofficial"
+
 #define ADRENALINE_VERSION ((ADRENALINE_VERSION_MAJOR << 24) | (ADRENALINE_VERSION_MINOR << 16) | (ADRENALINE_VERSION_MICRO << 8))
 
 #define xstr(s) #s
